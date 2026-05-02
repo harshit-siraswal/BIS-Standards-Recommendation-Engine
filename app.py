@@ -43,6 +43,19 @@ class RecommendationRequest(BaseModel):
     language: str = Field(default="en", max_length=20)
 
 
+class ChatMessage(BaseModel):
+    role: str = Field(..., max_length=20)
+    content: str = Field(..., min_length=1, max_length=1200)
+
+
+class ChatRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=MAX_QUERY_CHARS)
+    message: str = Field(..., min_length=1, max_length=1200)
+    history: list[ChatMessage] = Field(default_factory=list, max_length=8)
+    top_k: int = Field(default=5, ge=1, le=5)
+    language: str = Field(default="en", max_length=20)
+
+
 class RecommendationItem(BaseModel):
     code: str
     title: str
@@ -78,6 +91,13 @@ class RecommendationResponse(BaseModel):
     business_guidance: BusinessGuidance
     out_of_scope: bool = False
     external_standards: list[ExternalStandard] = Field(default_factory=list)
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    retrieved_standards: list[str]
+    compliance_warnings: list[str]
+    ai_generated: bool = False
 
 
 FAVICON_SVG = """
@@ -127,7 +147,7 @@ INDEX_HTML = """
       --info: #175cd3;
       --shadow: 0 18px 50px rgba(8, 54, 111, 0.14);
       --radius: 8px;
-      --max: 1180px;
+      --max: 1380px;
     }
 
     * {
@@ -396,7 +416,7 @@ INDEX_HTML = """
       width: min(var(--max), calc(100% - 32px));
       margin: 28px auto 56px;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 360px;
+      grid-template-columns: minmax(0, 1fr) minmax(420px, 0.78fr);
       gap: 24px;
       align-items: start;
     }
@@ -621,6 +641,11 @@ INDEX_HTML = """
       overflow: hidden;
     }
 
+    .assistant-panel {
+      position: sticky;
+      top: 16px;
+    }
+
     .notice {
       border-left: 4px solid var(--saffron);
     }
@@ -735,6 +760,90 @@ INDEX_HTML = """
       text-transform: uppercase;
     }
 
+    .chat {
+      border-top: 1px solid var(--line);
+      padding: 18px 20px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .chat h3 {
+      margin: 0;
+      color: var(--gov-navy);
+      font-size: 0.96rem;
+    }
+
+    .chat-log {
+      min-height: 112px;
+      max-height: 260px;
+      overflow: auto;
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfdff;
+      padding: 10px;
+    }
+
+    .chat-message {
+      border-radius: 6px;
+      padding: 9px 10px;
+      font-size: 0.88rem;
+      color: var(--ink);
+      background: var(--white);
+      border: 1px solid var(--line);
+    }
+
+    .chat-message.user {
+      background: var(--gov-blue);
+      border-color: var(--gov-blue);
+      color: var(--white);
+      justify-self: end;
+      max-width: 92%;
+    }
+
+    .chat-message.assistant {
+      justify-self: start;
+      max-width: 96%;
+    }
+
+    .chat-form {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+    }
+
+    .chat-form input {
+      min-width: 0;
+      border: 1px solid #b7c7da;
+      border-radius: 6px;
+      padding: 10px 11px;
+      color: var(--ink);
+      background: var(--white);
+    }
+
+    .chat-form button {
+      border: 0;
+      border-radius: 6px;
+      background: var(--gov-blue);
+      color: var(--white);
+      padding: 10px 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .chat-form button:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+
+    .chat-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
     footer {
       border-top: 1px solid var(--line);
       background: #082f63;
@@ -837,6 +946,10 @@ INDEX_HTML = """
       .hero-inner,
       .workspace {
         grid-template-columns: 1fr;
+      }
+
+      .assistant-panel {
+        position: static;
       }
 
       .nav-links {
@@ -987,6 +1100,17 @@ INDEX_HTML = """
           </div>
           <div id="guidanceBody" class="guidance assistant-empty">
             <p data-assistant-i18n="empty">Run a standards search to view matched category, key terms, document readiness, testing readiness, and verification notes.</p>
+          </div>
+          <div class="chat">
+            <h3 data-assistant-i18n="chatTitle">Ask follow-up questions</h3>
+            <div id="chatLog" class="chat-log">
+              <div class="chat-message assistant" data-assistant-i18n="chatEmpty">Search a product, then ask about applicability, documents, testing, or verification.</div>
+            </div>
+            <form id="chatForm" class="chat-form">
+              <input id="chatInput" type="text" maxlength="1200" data-assistant-placeholder="chatPlaceholder" placeholder="Ask what to do next..." />
+              <button id="chatSubmit" type="submit" data-assistant-i18n="chatSend">Ask</button>
+            </form>
+            <p class="chat-note" data-assistant-i18n="chatNote">The chatbot only uses standards returned by this retriever and asks you to verify with BIS.</p>
           </div>
         </section>
         <section class="panel notice">
@@ -2087,7 +2211,15 @@ INDEX_HTML = """
         documentsTitle: "Documents to prepare",
         testingTitle: "Testing and lab readiness",
         workflowTitle: "BIS certification workflow",
-        notesTitle: "Warnings and verification notes"
+        notesTitle: "Warnings and verification notes",
+        chatTitle: "Ask follow-up questions",
+        chatEmpty: "Search a product, then ask about applicability, documents, testing, or verification.",
+        chatPlaceholder: "Ask what to do next...",
+        chatSend: "Ask",
+        chatSending: "Thinking...",
+        chatNote: "The chatbot only uses standards returned by this retriever and asks you to verify with BIS.",
+        chatNeedQuery: "Enter a product description first.",
+        chatError: "Chatbot response failed."
       },
       hi: {
         title: "व्यावसायिक अनुपालन सहायक",
@@ -2104,7 +2236,15 @@ INDEX_HTML = """
         documentsTitle: "तैयार करने वाले दस्तावेज़",
         testingTitle: "परीक्षण और लैब तैयारी",
         workflowTitle: "BIS प्रमाणन कार्यप्रवाह",
-        notesTitle: "चेतावनी और सत्यापन नोट"
+        notesTitle: "चेतावनी और सत्यापन नोट",
+        chatTitle: "फॉलो-अप प्रश्न पूछें",
+        chatEmpty: "उत्पाद खोजें, फिर लागू मानक, दस्तावेज़, परीक्षण या सत्यापन के बारे में पूछें।",
+        chatPlaceholder: "अगला कदम पूछें...",
+        chatSend: "पूछें",
+        chatSending: "सोच रहा है...",
+        chatNote: "चैटबॉट केवल इसी retriever से लौटे मानकों का उपयोग करता है और BIS से सत्यापन कहता है।",
+        chatNeedQuery: "पहले उत्पाद विवरण दर्ज करें।",
+        chatError: "चैटबॉट उत्तर नहीं दे सका।"
       },
       hinglish: {
         title: "Business Compliance Assistant",
@@ -2121,7 +2261,15 @@ INDEX_HTML = """
         documentsTitle: "Documents prepare karein",
         testingTitle: "Testing aur lab readiness",
         workflowTitle: "BIS certification workflow",
-        notesTitle: "Warnings aur verification notes"
+        notesTitle: "Warnings aur verification notes",
+        chatTitle: "Follow-up questions poochein",
+        chatEmpty: "Product search karein, phir applicability, documents, testing, ya verification ke baare mein poochein.",
+        chatPlaceholder: "Next step poochein...",
+        chatSend: "Ask",
+        chatSending: "Soch raha hai...",
+        chatNote: "Chatbot sirf retriever ke returned standards use karta hai aur BIS verification bolta hai.",
+        chatNeedQuery: "Pehle product description enter karein.",
+        chatError: "Chatbot response fail ho gaya."
       }
     };
 
@@ -2136,9 +2284,14 @@ INDEX_HTML = """
     const latency = document.querySelector("#latency");
     const warnings = document.querySelector("#warnings");
     const guidanceBody = document.querySelector("#guidanceBody");
+    const chatLog = document.querySelector("#chatLog");
+    const chatForm = document.querySelector("#chatForm");
+    const chatInput = document.querySelector("#chatInput");
+    const chatSubmit = document.querySelector("#chatSubmit");
     const languageSelect = document.querySelector("#languageSelect");
     let currentLang = "en";
     let latestResultData = null;
+    let chatHistory = [];
 
     function escapeHtml(value) {
       return String(value)
@@ -2179,6 +2332,10 @@ INDEX_HTML = """
         node.textContent = a(node.dataset.assistantI18n);
       });
 
+      document.querySelectorAll("[data-assistant-placeholder]").forEach((node) => {
+        node.placeholder = a(node.dataset.assistantPlaceholder);
+      });
+
       document.querySelectorAll("[data-sample]").forEach((button) => {
         const key = button.dataset.sample;
         button.textContent = t(`sample${key[0].toUpperCase()}${key.slice(1)}Label`);
@@ -2198,6 +2355,7 @@ INDEX_HTML = """
         renderResults(latestResultData);
       } else {
         renderGuidance(null);
+        renderChatLog();
       }
     }
 
@@ -2272,6 +2430,24 @@ INDEX_HTML = """
       `;
     }
 
+    function renderChatLog() {
+      if (!chatHistory.length) {
+        chatLog.innerHTML = `<div class="chat-message assistant">${escapeHtml(a("chatEmpty"))}</div>`;
+        return;
+      }
+      chatLog.innerHTML = chatHistory.map((item) => {
+        const role = item.role === "user" ? "user" : "assistant";
+        return `<div class="chat-message ${role}">${escapeHtml(item.content)}</div>`;
+      }).join("");
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    function appendChat(role, content) {
+      chatHistory.push({ role, content });
+      chatHistory = chatHistory.slice(-8);
+      renderChatLog();
+    }
+
     function renderResults(data) {
       latestResultData = data;
       latency.textContent = `${Number(data.latency_seconds || 0).toFixed(3)}s`;
@@ -2321,6 +2497,8 @@ INDEX_HTML = """
 
     async function recommend(query) {
       latestResultData = null;
+      chatHistory = [];
+      renderChatLog();
       setLoading(true);
       latency.textContent = t("searching");
       resultBody.className = "empty-state";
@@ -2345,10 +2523,52 @@ INDEX_HTML = """
       }
     }
 
+    async function askAssistant(message) {
+      const query = queryInput.value.trim();
+      if (!query) {
+        appendChat("assistant", a("chatNeedQuery"));
+        return;
+      }
+      appendChat("user", message);
+      chatSubmit.disabled = true;
+      chatSubmit.textContent = a("chatSending");
+      try {
+        const response = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query,
+            message,
+            history: chatHistory.slice(0, -1),
+            top_k: 5,
+            language: currentLang,
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || a("chatError"));
+        }
+        appendChat("assistant", data.answer || a("chatError"));
+      } catch (error) {
+        appendChat("assistant", error.message || a("chatError"));
+      } finally {
+        chatSubmit.disabled = false;
+        chatSubmit.textContent = a("chatSend");
+      }
+    }
+
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       const query = queryInput.value.trim();
       if (query) recommend(query);
+    });
+
+    chatForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const message = chatInput.value.trim();
+      if (!message) return;
+      chatInput.value = "";
+      askAssistant(message);
     });
 
     document.querySelectorAll("[data-sample]").forEach((button) => {
@@ -2508,6 +2728,7 @@ VERIFY_WITH_BIS_NOTE = (
     "Verify with BIS before relying on this guidance for certification, testing, fees, timelines, "
     "or legal compliance."
 )
+FALLBACK_CHAT_DISCLOSURE = "Verify with BIS before taking certification or legal action."
 
 
 def _tokenize_guidance_text(text: str) -> list[str]:
@@ -2572,7 +2793,13 @@ def _fallback_business_guidance(
     for index, item in enumerate(recommendations, start=1):
         code = str(item.get("code") or retrieved_codes[index - 1])
         title = str(item.get("title") or "BIS catalogue standard")
-        why.append(f"Rank {index}: {code} matched the catalogue title/scope for {title}.")
+        if index == 1:
+            why.append(f"Top candidate: {code} aligns with the catalogue title/scope for {title}.")
+        else:
+            why.append(
+                f"Additional candidate rank {index}: {code} is related in the catalogue, but verify "
+                f"whether {title} applies to this exact product grade and use."
+            )
 
     return {
         "matched_category": _matched_category(query, recommendations),
@@ -2705,6 +2932,156 @@ def _groq_business_guidance(
         return None
     allowed_codes = {normalize_standard_code(code) for code in retrieved_codes}
     return _normalize_guidance_payload(guidance_payload, allowed_codes)
+
+
+def _answer_mentions_only_allowed_codes(answer: str, allowed_codes: set[str]) -> bool:
+    for match in GUIDANCE_IS_CODE_PATTERN.findall(answer):
+        if normalize_standard_code(match) not in allowed_codes:
+            return False
+    return True
+
+
+def _fallback_chat_answer(
+    message: str,
+    retrieved_codes: list[str],
+    recommendations: list[dict[str, Any]],
+    out_of_scope: bool,
+) -> str:
+    if out_of_scope or not retrieved_codes:
+        return (
+            "I do not have a returned BIS catalogue match for this product in the current retrieval result. "
+            f"Use the official BIS portal or Manak Online to verify the applicable standard. {FALLBACK_CHAT_DISCLOSURE}"
+        )
+
+    lower = message.lower()
+    top = recommendations[0] if recommendations else {}
+    top_code = str(top.get("code") or retrieved_codes[0])
+    top_title = str(top.get("title") or "the top returned standard")
+    codes = ", ".join(retrieved_codes)
+    other_codes = ", ".join(retrieved_codes[1:]) or "no additional returned candidates"
+
+    if any(term in lower for term in ("why", "match", "selected", "applicable", "which")):
+        return (
+            f"The strongest candidate is {top_code} because its catalogue title/scope is closest to the "
+            f"product description: {top_title}. Other returned candidates ({other_codes}) are related catalogue "
+            f"matches and should be treated as candidates until the exact grade, material, and intended use "
+            f"are checked against the official BIS text. {FALLBACK_CHAT_DISCLOSURE}"
+        )
+    if any(term in lower for term in ("document", "prepare", "paper", "record")):
+        return (
+            "Prepare a product description, grade/material details, manufacturing process note, quality-control "
+            "records, raw material specifications, supplier records, and sample batch traceability. "
+            f"Use these documents to verify the returned standards ({codes}) with BIS. {FALLBACK_CHAT_DISCLOSURE}"
+        )
+    if any(term in lower for term in ("test", "lab", "sample")):
+        return (
+            "Prepare representative samples with batch traceability, identify competent labs, and compare required "
+            f"test parameters against the official text for the returned standards ({codes}). "
+            f"{FALLBACK_CHAT_DISCLOSURE}"
+        )
+    if any(term in lower for term in ("next", "workflow", "certification", "apply", "manak")):
+        return (
+            f"Next, verify {top_code} and the other returned candidates on the official BIS portal, map each product "
+            "variant to the correct code, prepare test evidence and documents, then use Manak Online or the relevant "
+            f"BIS channel for the official process. {FALLBACK_CHAT_DISCLOSURE}"
+        )
+    return (
+        f"I can answer using only the returned standards: {codes}. The top candidate is {top_code} ({top_title}). "
+        "Ask about why it matched, documents, testing readiness, or next steps. "
+        f"{FALLBACK_CHAT_DISCLOSURE}"
+    )
+
+
+def _groq_chat_answer(
+    query: str,
+    message: str,
+    history: list[ChatMessage],
+    retrieved_codes: list[str],
+    recommendations: list[dict[str, Any]],
+) -> str | None:
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key or not retrieved_codes:
+        return None
+
+    standards = [
+        {
+            "code": item.get("code"),
+            "title": item.get("title"),
+            "rationale": item.get("rationale"),
+        }
+        for item in recommendations
+    ]
+    safe_history = [
+        {"role": item.role if item.role in {"user", "assistant"} else "user", "content": item.content}
+        for item in history[-6:]
+    ]
+    prompt = {
+        "product_query": query,
+        "user_message": message,
+        "history": safe_history,
+        "retrieved_standards": standards,
+        "rules": [
+            "Answer only using retrieved_standards.",
+            "Only mention IS codes present in retrieved_standards.",
+            "Do not invent fees, timelines, forms, legal claims, certification guarantees, or standards.",
+            "If unsure, say to verify with BIS.",
+        ],
+    }
+    request_body = {
+        "model": os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant"),
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a cautious BIS standards assistant for MSE users. Keep answers short, "
+                    "grounded only in supplied retrieved standards, and include BIS verification when needed."
+                ),
+            },
+            {"role": "user", "content": json.dumps(prompt, ensure_ascii=True)},
+        ],
+        "temperature": 0.1,
+        "max_tokens": 450,
+    }
+    request = urllib.request.Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=json.dumps(request_body).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=3.0) as response:
+            response_payload = json.loads(response.read().decode("utf-8"))
+    except (OSError, urllib.error.URLError, json.JSONDecodeError):
+        return None
+
+    answer = str(
+        response_payload.get("choices", [{}])[0]
+        .get("message", {})
+        .get("content", "")
+    ).strip()
+    allowed_codes = {normalize_standard_code(code) for code in retrieved_codes}
+    if not answer or not _answer_mentions_only_allowed_codes(answer, allowed_codes):
+        return None
+    if "verify with bis" not in answer.lower():
+        answer = f"{answer} {FALLBACK_CHAT_DISCLOSURE}"
+    return answer[:1800]
+
+
+def _chat_answer(
+    query: str,
+    message: str,
+    history: list[ChatMessage],
+    retrieved_codes: list[str],
+    recommendations: list[dict[str, Any]],
+    out_of_scope: bool,
+) -> tuple[str, bool]:
+    generated = _groq_chat_answer(query, message, history, retrieved_codes, recommendations)
+    if generated is not None:
+        return generated, True
+    return _fallback_chat_answer(message, retrieved_codes, recommendations, out_of_scope), False
 
 
 def _business_guidance(
@@ -3065,3 +3442,41 @@ def recommend(payload: RecommendationRequest) -> dict[str, Any]:
 @app.post("/api/recommend", response_model=RecommendationResponse, include_in_schema=False)
 def recommend_api(payload: RecommendationRequest) -> dict[str, Any]:
     return recommend(payload)
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(payload: ChatRequest) -> dict[str, Any]:
+    query = payload.query.strip()
+    message = payload.message.strip()
+    if not query or not message:
+        raise HTTPException(status_code=422, detail="query and message must not be empty")
+
+    try:
+        pipeline = _pipeline()
+        processed = pipeline.query_processor.process(query)
+        result = pipeline.run_query(query, top_k=payload.top_k)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Chat failed: {exc}") from exc
+
+    recommendations = _recommendation_items(result["retrieved_standards"], payload.language)
+    answer, ai_generated = _chat_answer(
+        query=query,
+        message=message,
+        history=payload.history,
+        retrieved_codes=result["retrieved_standards"],
+        recommendations=recommendations,
+        out_of_scope=bool(result.get("out_of_scope")),
+    )
+    return {
+        "answer": answer,
+        "retrieved_standards": result["retrieved_standards"],
+        "compliance_warnings": processed.compliance_warnings,
+        "ai_generated": ai_generated,
+    }
+
+
+@app.post("/api/chat", response_model=ChatResponse, include_in_schema=False)
+def chat_api(payload: ChatRequest) -> dict[str, Any]:
+    return chat(payload)

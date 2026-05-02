@@ -119,6 +119,8 @@ def test_recommendation_response_includes_deterministic_business_guidance(monkey
     assert guidance["matched_category"]
     assert guidance["matched_terms"]
     assert guidance["why_these_standards"]
+    assert guidance["why_these_standards"][0].startswith("Top candidate:")
+    assert "Additional candidate" in " ".join(guidance["why_these_standards"])
     assert any("Verify with BIS" in note for note in guidance["verification_notes"])
 
     allowed_codes = set(payload["retrieved_standards"])
@@ -161,6 +163,49 @@ def test_out_of_scope_business_guidance_does_not_invent_catalog_codes(monkeypatc
     assert guidance["ai_generated"] is False
     assert guidance["why_these_standards"] == []
     assert any("Verify with BIS" in note for note in guidance["verification_notes"])
+
+
+def test_chat_endpoint_uses_retrieved_standards_with_deterministic_fallback(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+
+    response = client.post(
+        "/chat",
+        json={
+            "query": "white Portland cement for architectural decorative use",
+            "message": "Why did this match and what should I do next?",
+            "top_k": 3,
+            "history": [],
+        },
+    )
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert payload["retrieved_standards"]
+    assert payload["ai_generated"] is False
+    assert "Verify with BIS" in payload["answer"]
+
+    mentioned_codes = re.findall(
+        r"\bIS\s*\d{2,5}(?:\s*\(\s*Part\s*\d+(?:\s*/\s*Sec\s*\d+)?\s*\))?\s*[:\-]\s*\d{4}",
+        payload["answer"],
+        re.I,
+    )
+    assert set(mentioned_codes).issubset(set(payload["retrieved_standards"]))
+
+
+def test_chat_endpoint_handles_out_of_scope_without_inventing_standards(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+
+    response = client.post(
+        "/chat",
+        json={"query": "we make edible oil", "message": "Which BIS code applies?", "top_k": 5},
+    )
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert payload["retrieved_standards"] == []
+    assert payload["ai_generated"] is False
+    assert "current retrieval result" in payload["answer"]
+    assert not re.findall(r"\bIS\s*\d{2,5}", payload["answer"], re.I)
 
 
 def test_edible_oil_queries_return_relevant_oil_standards_with_links():
