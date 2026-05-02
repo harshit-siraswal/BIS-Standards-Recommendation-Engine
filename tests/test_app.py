@@ -53,6 +53,13 @@ def test_language_map_covers_all_interface_text_keys():
         assert base_keys - language_keys == set(), language
 
 
+def test_udyam_saarthi_floating_widget_is_rendered():
+    assert "Udyam Saarthi" in INDEX_HTML
+    assert "saarthi-widget" in INDEX_HTML
+    assert "saarthi-mascot" in INDEX_HTML
+    assert "saarthi-saree" in INDEX_HTML
+
+
 def test_multilingual_pencil_queries_return_verified_external_standards():
     queries = [
         ("en", "we are making graphite lead pencils"),
@@ -190,6 +197,27 @@ def test_chat_endpoint_uses_retrieved_standards_with_deterministic_fallback(monk
         re.I,
     )
     assert set(mentioned_codes).issubset(set(payload["retrieved_standards"]))
+
+
+def test_chat_endpoint_gives_step_by_step_links_for_application_questions(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+
+    response = client.post(
+        "/chat",
+        json={
+            "query": "33 grade ordinary portland cement for building construction",
+            "message": "Can you give me step by step process and link where to apply next?",
+            "top_k": 5,
+        },
+    )
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert "Step 1:" in payload["answer"]
+    assert "https://www.manakonline.in/MANAK/ApplicationLicenceRelatedrpt" in payload["answer"]
+    assert "https://www.manakonline.in/MANAK/impLinks" in payload["answer"]
+    assert "https://www.bis.gov.in/product-certification/product-certification-overview/?lang=en" in payload["answer"]
+    assert "Verify with BIS" in payload["answer"]
 
 
 def test_chat_endpoint_handles_out_of_scope_without_inventing_standards(monkeypatch):

@@ -760,9 +760,161 @@ INDEX_HTML = """
       text-transform: uppercase;
     }
 
+    .saarthi-widget {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 60;
+      width: min(420px, calc(100vw - 32px));
+      display: grid;
+      justify-items: end;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .saarthi-panel {
+      width: 100%;
+      max-height: min(640px, calc(100vh - 110px));
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+      box-shadow: 0 22px 70px rgba(8, 54, 111, 0.22);
+      display: none;
+      pointer-events: auto;
+    }
+
+    .saarthi-widget.open .saarthi-panel {
+      display: grid;
+    }
+
+    .saarthi-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-top: 4px solid var(--india-green);
+      border-bottom: 1px solid var(--line);
+      background: #fbfdff;
+    }
+
+    .saarthi-identity {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .saarthi-head h2 {
+      margin: 0;
+      color: var(--gov-navy);
+      font-size: 1rem;
+    }
+
+    .saarthi-close,
+    .saarthi-toggle {
+      border: 0;
+      cursor: pointer;
+      font-weight: 900;
+    }
+
+    .saarthi-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #e8f1ff;
+      color: var(--gov-navy);
+    }
+
+    .saarthi-toggle {
+      pointer-events: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 54px;
+      border-radius: 999px;
+      background: var(--gov-blue);
+      color: var(--white);
+      box-shadow: 0 18px 42px rgba(0, 94, 168, 0.34);
+      padding: 0 18px;
+    }
+
+    .saarthi-mark {
+      flex: 0 0 auto;
+    }
+
+    .saarthi-mascot {
+      position: relative;
+      width: 38px;
+      height: 42px;
+      border-radius: 50% 50% 44% 44%;
+      background: #fff7ed;
+      border: 2px solid rgba(8, 54, 111, 0.22);
+      box-shadow: inset 0 -6px 0 rgba(255, 153, 51, 0.16);
+      overflow: hidden;
+    }
+
+    .saarthi-mascot::before {
+      content: "";
+      position: absolute;
+      left: 8px;
+      top: 4px;
+      width: 22px;
+      height: 19px;
+      border-radius: 50% 50% 44% 44%;
+      background: #2b1c16;
+      box-shadow: 8px 2px 0 #2b1c16;
+    }
+
+    .saarthi-mascot::after {
+      content: "";
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      width: 15px;
+      height: 14px;
+      border-radius: 50%;
+      background: #9b5c37;
+      box-shadow: 4px 6px 0 -1px #8c4f31;
+    }
+
+    .saarthi-saree {
+      position: absolute;
+      left: 7px;
+      right: 5px;
+      bottom: -2px;
+      height: 18px;
+      border-radius: 11px 11px 3px 3px;
+      background: linear-gradient(135deg, var(--saffron) 0 42%, #f7f9fc 42% 50%, var(--india-green) 50% 100%);
+    }
+
+    .saarthi-saree::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: -11px;
+      width: 16px;
+      height: 29px;
+      border-radius: 9px 9px 2px 2px;
+      background: rgba(255, 153, 51, 0.92);
+      transform: rotate(-18deg);
+      transform-origin: bottom center;
+    }
+
+    .saarthi-dot {
+      position: absolute;
+      left: 18px;
+      top: 13px;
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: #b42318;
+      z-index: 2;
+    }
+
     .chat {
-      border-top: 1px solid var(--line);
-      padding: 18px 20px;
+      padding: 16px;
       display: grid;
       gap: 12px;
     }
@@ -775,7 +927,7 @@ INDEX_HTML = """
 
     .chat-log {
       min-height: 112px;
-      max-height: 260px;
+      max-height: 320px;
       overflow: auto;
       display: grid;
       align-content: start;
@@ -842,6 +994,12 @@ INDEX_HTML = """
       margin: 0;
       color: var(--muted);
       font-size: 0.78rem;
+    }
+
+    .chat-message a {
+      color: inherit;
+      font-weight: 900;
+      overflow-wrap: anywhere;
     }
 
     footer {
@@ -1101,17 +1259,6 @@ INDEX_HTML = """
           <div id="guidanceBody" class="guidance assistant-empty">
             <p data-assistant-i18n="empty">Run a standards search to view matched category, key terms, document readiness, testing readiness, and verification notes.</p>
           </div>
-          <div class="chat">
-            <h3 data-assistant-i18n="chatTitle">Ask follow-up questions</h3>
-            <div id="chatLog" class="chat-log">
-              <div class="chat-message assistant" data-assistant-i18n="chatEmpty">Search a product, then ask about applicability, documents, testing, or verification.</div>
-            </div>
-            <form id="chatForm" class="chat-form">
-              <input id="chatInput" type="text" maxlength="1200" data-assistant-placeholder="chatPlaceholder" placeholder="Ask what to do next..." />
-              <button id="chatSubmit" type="submit" data-assistant-i18n="chatSend">Ask</button>
-            </form>
-            <p class="chat-note" data-assistant-i18n="chatNote">The chatbot only uses standards returned by this retriever and asks you to verify with BIS.</p>
-          </div>
         </section>
         <section class="panel notice">
           <h2 data-i18n="scopeTitle">Catalogue scope</h2>
@@ -1133,6 +1280,32 @@ INDEX_HTML = """
       </aside>
     </section>
   </main>
+
+  <div id="saarthiWidget" class="saarthi-widget" aria-live="polite">
+    <section class="saarthi-panel" aria-label="Udyam Saarthi chatbot">
+      <div class="saarthi-head">
+        <div class="saarthi-identity">
+          <span class="saarthi-mascot" aria-hidden="true"><span class="saarthi-dot"></span><span class="saarthi-saree"></span></span>
+          <h2 data-assistant-i18n="chatTitle">Udyam Saarthi</h2>
+        </div>
+        <button id="saarthiClose" class="saarthi-close" type="button" aria-label="Close Udyam Saarthi">x</button>
+      </div>
+      <div class="chat">
+        <div id="chatLog" class="chat-log">
+          <div class="chat-message assistant" data-assistant-i18n="chatEmpty">Search a product, then ask about applicability, documents, testing, or verification.</div>
+        </div>
+        <form id="chatForm" class="chat-form">
+          <input id="chatInput" type="text" maxlength="1200" data-assistant-placeholder="chatPlaceholder" placeholder="Ask what to do next..." />
+          <button id="chatSubmit" type="submit" data-assistant-i18n="chatSend">Ask</button>
+        </form>
+        <p class="chat-note" data-assistant-i18n="chatNote">Udyam Saarthi only uses standards returned by this retriever and asks you to verify with BIS.</p>
+      </div>
+    </section>
+    <button id="saarthiToggle" class="saarthi-toggle" type="button" aria-label="Open Udyam Saarthi chatbot">
+      <span class="saarthi-mark saarthi-mascot" aria-hidden="true"><span class="saarthi-dot"></span><span class="saarthi-saree"></span></span>
+      <span>Udyam Saarthi</span>
+    </button>
+  </div>
 
   <footer>
     <div class="wrap footer-inner">
@@ -2212,12 +2385,12 @@ INDEX_HTML = """
         testingTitle: "Testing and lab readiness",
         workflowTitle: "BIS certification workflow",
         notesTitle: "Warnings and verification notes",
-        chatTitle: "Ask follow-up questions",
+        chatTitle: "Udyam Saarthi",
         chatEmpty: "Search a product, then ask about applicability, documents, testing, or verification.",
-        chatPlaceholder: "Ask what to do next...",
+        chatPlaceholder: "Ask Udyam Saarthi what to do next...",
         chatSend: "Ask",
         chatSending: "Thinking...",
-        chatNote: "The chatbot only uses standards returned by this retriever and asks you to verify with BIS.",
+        chatNote: "Udyam Saarthi only uses standards returned by this retriever and asks you to verify with BIS.",
         chatNeedQuery: "Enter a product description first.",
         chatError: "Chatbot response failed."
       },
@@ -2237,12 +2410,12 @@ INDEX_HTML = """
         testingTitle: "परीक्षण और लैब तैयारी",
         workflowTitle: "BIS प्रमाणन कार्यप्रवाह",
         notesTitle: "चेतावनी और सत्यापन नोट",
-        chatTitle: "फॉलो-अप प्रश्न पूछें",
+        chatTitle: "उद्यम सारथी",
         chatEmpty: "उत्पाद खोजें, फिर लागू मानक, दस्तावेज़, परीक्षण या सत्यापन के बारे में पूछें।",
-        chatPlaceholder: "अगला कदम पूछें...",
+        chatPlaceholder: "उद्यम सारथी से अगला कदम पूछें...",
         chatSend: "पूछें",
         chatSending: "सोच रहा है...",
-        chatNote: "चैटबॉट केवल इसी retriever से लौटे मानकों का उपयोग करता है और BIS से सत्यापन कहता है।",
+        chatNote: "उद्यम सारथी केवल इसी retriever से लौटे मानकों का उपयोग करता है और BIS से सत्यापन कहता है।",
         chatNeedQuery: "पहले उत्पाद विवरण दर्ज करें।",
         chatError: "चैटबॉट उत्तर नहीं दे सका।"
       },
@@ -2262,12 +2435,12 @@ INDEX_HTML = """
         testingTitle: "Testing aur lab readiness",
         workflowTitle: "BIS certification workflow",
         notesTitle: "Warnings aur verification notes",
-        chatTitle: "Follow-up questions poochein",
+        chatTitle: "Udyam Saarthi",
         chatEmpty: "Product search karein, phir applicability, documents, testing, ya verification ke baare mein poochein.",
-        chatPlaceholder: "Next step poochein...",
+        chatPlaceholder: "Udyam Saarthi se next step poochein...",
         chatSend: "Ask",
         chatSending: "Soch raha hai...",
-        chatNote: "Chatbot sirf retriever ke returned standards use karta hai aur BIS verification bolta hai.",
+        chatNote: "Udyam Saarthi sirf retriever ke returned standards use karta hai aur BIS verification bolta hai.",
         chatNeedQuery: "Pehle product description enter karein.",
         chatError: "Chatbot response fail ho gaya."
       }
@@ -2288,6 +2461,9 @@ INDEX_HTML = """
     const chatForm = document.querySelector("#chatForm");
     const chatInput = document.querySelector("#chatInput");
     const chatSubmit = document.querySelector("#chatSubmit");
+    const saarthiWidget = document.querySelector("#saarthiWidget");
+    const saarthiToggle = document.querySelector("#saarthiToggle");
+    const saarthiClose = document.querySelector("#saarthiClose");
     const languageSelect = document.querySelector("#languageSelect");
     let currentLang = "en";
     let latestResultData = null;
@@ -2437,15 +2613,31 @@ INDEX_HTML = """
       }
       chatLog.innerHTML = chatHistory.map((item) => {
         const role = item.role === "user" ? "user" : "assistant";
-        return `<div class="chat-message ${role}">${escapeHtml(item.content)}</div>`;
+        return `<div class="chat-message ${role}">${renderChatContent(item.content)}</div>`;
       }).join("");
       chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    function renderChatContent(content) {
+      return escapeHtml(content).replace(
+        /(https?:\/\/[^\s<]+)/g,
+        (url) => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`
+      );
     }
 
     function appendChat(role, content) {
       chatHistory.push({ role, content });
       chatHistory = chatHistory.slice(-8);
       renderChatLog();
+    }
+
+    function openSaarthi() {
+      saarthiWidget.classList.add("open");
+      setTimeout(() => chatInput.focus(), 0);
+    }
+
+    function closeSaarthi() {
+      saarthiWidget.classList.remove("open");
     }
 
     function renderResults(data) {
@@ -2570,6 +2762,9 @@ INDEX_HTML = """
       chatInput.value = "";
       askAssistant(message);
     });
+
+    saarthiToggle.addEventListener("click", openSaarthi);
+    saarthiClose.addEventListener("click", closeSaarthi);
 
     document.querySelectorAll("[data-sample]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -2729,6 +2924,12 @@ VERIFY_WITH_BIS_NOTE = (
     "or legal compliance."
 )
 FALLBACK_CHAT_DISCLOSURE = "Verify with BIS before taking certification or legal action."
+BIS_PRODUCT_CERTIFICATION_URL = (
+    "https://www.bis.gov.in/product-certification/product-certification-overview/?lang=en"
+)
+BIS_STANDARD_LOOKUP_URL = "https://www.manakonline.in/MANAK/ApplicationLicenceRelatedrpt"
+MANAK_ONLINE_URL = "https://www.manakonline.in/MANAK/impLinks"
+BIS_FAQ_URL = "https://www.bis.gov.in/product-certification/product-certification-faq/?lang=en"
 
 
 def _tokenize_guidance_text(text: str) -> list[str]:
@@ -2959,6 +3160,40 @@ def _fallback_chat_answer(
     top_title = str(top.get("title") or "the top returned standard")
     codes = ", ".join(retrieved_codes)
     other_codes = ", ".join(retrieved_codes[1:]) or "no additional returned candidates"
+    wants_process = any(
+        term in lower
+        for term in (
+            "apply",
+            "application",
+            "website",
+            "link",
+            "step",
+            "process",
+            "exactly",
+            "what to do",
+            "where",
+            "next",
+            "workflow",
+            "certification",
+            "manak",
+        )
+    )
+
+    if wants_process:
+        return (
+            f"Step 1: Treat {top_code} as the strongest candidate for now and verify the exact product grade, "
+            f"material, and intended use against the official standard text. Standard lookup: {BIS_STANDARD_LOOKUP_URL}\n"
+            f"Step 2: Review BIS product certification guidance to confirm the right certification route for this product. "
+            f"Official overview: {BIS_PRODUCT_CERTIFICATION_URL}\n"
+            "Step 3: Prepare product variant details, manufacturing process notes, quality-control records, raw-material "
+            "specifications, and sample batch traceability.\n"
+            "Step 4: Arrange testing against the official standard requirements through an appropriate competent lab before "
+            "submitting/continuing certification activity.\n"
+            f"Step 5: Use Manak Online for online application/licence-related actions. Portal/help links: {MANAK_ONLINE_URL}\n"
+            f"Step 6: If the applicable Indian Standard is unclear, use BIS FAQ guidance and contact/verify with BIS before filing. "
+            f"FAQ: {BIS_FAQ_URL}\n"
+            f"{FALLBACK_CHAT_DISCLOSURE}"
+        )
 
     if any(term in lower for term in ("why", "match", "selected", "applicable", "which")):
         return (
@@ -2978,12 +3213,6 @@ def _fallback_chat_answer(
             "Prepare representative samples with batch traceability, identify competent labs, and compare required "
             f"test parameters against the official text for the returned standards ({codes}). "
             f"{FALLBACK_CHAT_DISCLOSURE}"
-        )
-    if any(term in lower for term in ("next", "workflow", "certification", "apply", "manak")):
-        return (
-            f"Next, verify {top_code} and the other returned candidates on the official BIS portal, map each product "
-            "variant to the correct code, prepare test evidence and documents, then use Manak Online or the relevant "
-            f"BIS channel for the official process. {FALLBACK_CHAT_DISCLOSURE}"
         )
     return (
         f"I can answer using only the returned standards: {codes}. The top candidate is {top_code} ({top_title}). "
