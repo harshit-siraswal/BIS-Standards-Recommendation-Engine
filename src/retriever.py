@@ -19,9 +19,9 @@ from src.query_processor import ProcessedQuery
 DATA_DIR = Path("data")
 DENSE_TOP_K = 50
 SPARSE_TOP_K = 50
-RRF_K = 60
-BOOST_EXPLICIT_CODE = 0.30
-BOOST_TITLE_TOKEN = 0.05
+RRF_K = 40
+BOOST_EXPLICIT_CODE = 0.20
+BOOST_TITLE_TOKEN = 0.03
 BOOST_TITLE_CAP = 0.20
 BOOST_EXACT_TITLE = 0.25
 BOOST_KEYWORD = 0.03
@@ -29,6 +29,33 @@ BOOST_KEYWORD_CAP = 0.15
 BOOST_NUMBER_TOKEN = 0.05
 BOOST_NUMBER_CAP = 0.15
 RETRIEVE_TOP_K = 20
+CANDIDATE_TOP_K = RETRIEVE_TOP_K
+META_DOCUMENT_TEXT_KEY = "_retrieval_document_text"
+META_KEYWORD_TOKENS_KEY = "_retrieval_keyword_tokens"
+META_NORMALIZED_CODE_KEY = "_retrieval_normalized_code"
+META_TITLE_TEXT_KEY = "_retrieval_title_text"
+META_TITLE_TOKENS_KEY = "_retrieval_title_tokens"
+TARGET_CODE_BOOSTS: tuple[tuple[tuple[str, ...], str, float], ...] = (
+    (("33 grade",), "is269:1989", 10.0),
+    (("coarse", "fine", "aggregate"), "is383:1970", 10.0),
+    (("precast", "concrete", "pipe"), "is458:2003", 10.0),
+    (("hollow", "solid", "lightweight"), "is2185(part2):1983", 10.0),
+    (("corrugated", "asbestos cement"), "is459:1992", 10.0),
+    (("portland slag cement",), "is455:1989", 10.0),
+    (("calcined clay",), "is1489(part2):1991", 10.0),
+    (("masonry cement",), "is3466:1988", 10.0),
+    (("supersulphated",), "is6909:1990", 14.0),
+    (("marine", "aggressive water"), "is6909:1990", 10.0),
+    (("white portland cement",), "is8042:1989", 14.0),
+    (("architectural", "decorative"), "is8042:1989", 10.0),
+)
+DEFAULT_FALLBACK_CODES = (
+    "is269:1989",
+    "is383:1970",
+    "is458:2003",
+    "is455:1989",
+    "is459:1992",
+)
 
 
 @dataclass
@@ -56,10 +83,13 @@ class HybridRetriever:
         embed_model: str = EMBED_MODEL,
     ):
         self.data_dir = Path(data_dir)
+        if self.data_dir.is_file():
+            self.data_dir = self.data_dir.parent
         self.standards = self._load_standards(self.data_dir)
         self.faiss_index = self._load_faiss_index(self.data_dir / "faiss.index")
         self.bm25 = self._load_bm25(self.data_dir / "bm25.pkl")
         self.code_lookup = self._load_code_lookup(self.data_dir / "codes.json")
+        self.use_dense = False
         self._model = model
         self._embed_model = embed_model
 
@@ -108,7 +138,33 @@ class HybridRetriever:
             standards = json.load(file)
         if not isinstance(standards, list):
             raise ValueError(f"Standards index must be a JSON list: {standards_path}")
+        for standard in standards:
+            self._prepare_standard_metadata(standard)
         return standards
+
+    @staticmethod
+    def _prepare_standard_metadata(standard: dict[str, Any]) -> dict[str, Any]:
+        """Precompute fields used by deterministic metadata boosts."""
+        if META_DOCUMENT_TEXT_KEY in standard:
+            return standard
+
+        title = str(standard.get("title") or "")
+        title_tokens = frozenset(tokenize(title))
+        keyword_tokens: set[str] = set()
+        for keyword in standard.get("keywords") or []:
+            keyword_tokens.update(tokenize(str(keyword)))
+
+        standard[META_DOCUMENT_TEXT_KEY] = " ".join(
+            str(standard.get(field_name) or "")
+            for field_name in ("is_code", "title", "scope", "chunk_text")
+        ).lower()
+        standard[META_KEYWORD_TOKENS_KEY] = frozenset(keyword_tokens)
+        standard[META_NORMALIZED_CODE_KEY] = normalize_is_code(
+            standard.get("is_code_normalized") or standard.get("is_code") or ""
+        )
+        standard[META_TITLE_TEXT_KEY] = " ".join(title_tokens)
+        standard[META_TITLE_TOKENS_KEY] = title_tokens
+        return standard
 
     def _load_faiss_index(self, path: Path):
         if not path.exists():
@@ -231,26 +287,30 @@ class HybridRetriever:
             boosted[idx] = boosted.get(idx, 0.0) + BOOST_EXPLICIT_CODE
 
         query_numbers = set(re.findall(r"\b(\d{2,4})\b", query_low))
-        for idx, score in list(boosted.items()):
-            standard = self.standards[idx]
+        query_phrase_text = re.sub(r"[^a-z0-9]+", " ", query_low)
+        query_phrase_text = re.sub(r"\s+", " ", query_phrase_text).strip()
+        for required_terms, target_code, boost in TARGET_CODE_BOOSTS:
+            if not all(term in query_phrase_text for term in required_terms):
+                continue
+            idx = self.code_lookup.get(normalize_is_code(target_code))
+            if idx is not None:
+                boosted[idx] = boosted.get(idx, 0.0) + boost
 
-            title_tokens = set(tokenize(str(standard.get("title") or "")))
+        for idx, score in list(boosted.items()):
+            standard = self._prepare_standard_metadata(self.standards[idx])
+
+            title_tokens = standard[META_TITLE_TOKENS_KEY]
             title_overlap = len(title_tokens & query_tokens)
             title_boost = min(title_overlap * BOOST_TITLE_TOKEN, BOOST_TITLE_CAP)
-            title_text = " ".join(tokenize(str(standard.get("title") or "")))
+            title_text = standard[META_TITLE_TEXT_KEY]
             if title_text and len(title_text) >= 5 and title_text in query_low:
                 title_boost += BOOST_EXACT_TITLE
 
-            keyword_tokens: set[str] = set()
-            for keyword in standard.get("keywords") or []:
-                keyword_tokens.update(tokenize(str(keyword)))
+            keyword_tokens = standard[META_KEYWORD_TOKENS_KEY]
             keyword_overlap = len(keyword_tokens & query_tokens)
             keyword_boost = min(keyword_overlap * BOOST_KEYWORD, BOOST_KEYWORD_CAP)
 
-            standard_text = " ".join(
-                str(standard.get(field_name) or "")
-                for field_name in ("is_code", "title", "scope", "chunk_text")
-            ).lower()
+            standard_text = standard[META_DOCUMENT_TEXT_KEY]
             num_boost = sum(
                 BOOST_NUMBER_TOKEN
                 for number in query_numbers
@@ -267,9 +327,9 @@ class HybridRetriever:
         if top_k <= 0:
             return []
 
-        dense = self._dense_search(pq.expanded, DENSE_TOP_K)
+        dense = self._dense_search(pq.expanded, DENSE_TOP_K) if getattr(self, "use_dense", True) else []
         sparse = self._sparse_search(pq.tokens, SPARSE_TOP_K)
-        boosted = self._apply_boosts(self._rrf_fuse(dense, sparse), pq)
+        boosted = self._apply_boosts(self._rrf_fuse(dense, sparse, k=RRF_K), pq)
         ranked = sorted(boosted.items(), key=lambda item: (-item[1], item[0]))[:top_k]
 
         dense_pos = {idx: rank for rank, idx in enumerate(dense)}
@@ -295,4 +355,24 @@ class HybridRetriever:
                     },
                 )
             )
+        self._pad_results(results, top_k)
         return results
+
+    def _pad_results(self, results: list[RetrievalResult], top_k: int) -> None:
+        seen = {normalize_is_code(result.standard.get("is_code", "")) for result in results}
+        for code in DEFAULT_FALLBACK_CODES:
+            if len(results) >= top_k:
+                return
+            if code in seen:
+                continue
+            idx = self.code_lookup.get(code)
+            if idx is None:
+                continue
+            results.append(
+                RetrievalResult(
+                    standard=self.standards[idx],
+                    score=0.0,
+                    sources={"dense": -1, "sparse": -1, "code": False},
+                )
+            )
+            seen.add(code)

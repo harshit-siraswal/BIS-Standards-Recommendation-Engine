@@ -85,10 +85,7 @@ def build_chunk_text(standard: dict[str, Any]) -> str:
 
 def _code_token(match: re.Match[str]) -> str:
     number = str(int(match.group(1))) if match.group(1).isdigit() else match.group(1)
-    if match.group(2) and match.group(2).isdigit():
-        part = str(int(match.group(2)))
-    else:
-        part = match.group(2) or "0"
+    part = str(int(match.group(2))) if match.group(2) and match.group(2).isdigit() else match.group(2) or "0"
     year = match.group(3)
     return f" iscode{number}p{part}y{year} "
 
