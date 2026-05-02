@@ -76,6 +76,110 @@ OUT_OF_SCOPE_PRODUCT_RULES = (
         "Use oil and fats standards such as IS 548 and the relevant oil-type specification.",
     ),
 )
+MULTILINGUAL_PRODUCT_EXPANSIONS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (
+        (
+            "33 ग्रेड साधारण पोर्टलैंड सीमेंट",
+            "cemento portland ordinario grado 33",
+            "ciment portland ordinaire grade 33",
+            "33 grade ordinary portland cement",
+            "33 grade opc",
+            "portlnd cemnt",
+        ),
+        "33 grade ordinary portland cement opc chemical physical requirements",
+    ),
+    (
+        (
+            "प्राकृतिक मोटा और महीन एग्रीगेट",
+            "agregados gruesos y finos",
+            "granulats grossiers et fins",
+            "agregate concret",
+            "sand gravel for concrete",
+        ),
+        "coarse fine aggregates natural sources structural concrete",
+    ),
+    (
+        (
+            "प्रीकास्ट कंक्रीट पाइप",
+            "जल मुख्य लाइन",
+            "tubos de concreto prefabricado",
+            "tuyaux en beton prefabrique",
+            "cement pipe for water line",
+        ),
+        "precast concrete pipes reinforced unreinforced water mains",
+    ),
+    (
+        (
+            "हल्के खोखले और ठोस कंक्रीट",
+            "bloques huecos y solidos",
+            "blocs de beton leger",
+            "light blocks for masonry wall",
+            "lightweight concrete masonry blocks",
+        ),
+        "hollow solid lightweight concrete masonry blocks dimensions physical requirements part 2",
+    ),
+    (
+        (
+            "corrugated asbestos cement sheet",
+            "छत और cladding",
+            "laminas onduladas de asbesto cemento",
+            "plaques ondulees en amiante ciment",
+            "corrugated roof sheet",
+            "corugated asbestos cemnt",
+        ),
+        "corrugated semi corrugated asbestos cement sheets roofing cladding",
+    ),
+    (
+        (
+            "पोर्टलैंड स्लैग सीमेंट",
+            "cemento portland con escoria",
+            "ciment portland au laitier",
+            "slag based cement",
+            "portlnd slag cemnt",
+        ),
+        "portland slag cement manufacture chemical physical requirements",
+    ),
+    (
+        (
+            "calcined clay आधारित",
+            "arcilla calcinada",
+            "argile calcinee",
+            "calcined clay ppc",
+            "pozzolana cement clay based",
+        ),
+        "portland pozzolana cement calcined clay based ppc part 2",
+    ),
+    (
+        (
+            "masonry mortar",
+            "cemento de albanileria",
+            "ciment de maconnerie",
+            "brick mortar",
+            "masonary cemnt",
+        ),
+        "masonry cement mortar general purpose non structural concrete",
+    ),
+    (
+        (
+            "समुद्री कार्य",
+            "cemento supersulfatado",
+            "ciment sursulfate",
+            "sea water exposure",
+            "marine works aggressive water",
+        ),
+        "supersulphated cement marine works aggressive water conditions",
+    ),
+    (
+        (
+            "सफेद पोर्टलैंड सीमेंट",
+            "cemento portland blanco",
+            "ciment portland blanc",
+            "white decorative cement",
+            "white portlnd cemnt",
+        ),
+        "white portland cement architectural decorative chemical physical requirements",
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -266,6 +370,22 @@ class SynonymExpander:
         return f"{normalized_query} {' '.join(appended)}"
 
 
+def expand_multilingual_product_terms(query: str, expanded: str) -> str:
+    """Append English retrieval terms for common multilingual product phrases."""
+    additions: list[str] = []
+    seen = {normalize_match_text(expanded)}
+    for terms, expansion in MULTILINGUAL_PRODUCT_EXPANSIONS:
+        if not contains_any_term(query, terms) and not contains_any_term(expanded, terms):
+            continue
+        expansion_key = normalize_match_text(expansion)
+        if expansion_key and expansion_key not in seen:
+            seen.add(expansion_key)
+            additions.append(expansion)
+    if not additions:
+        return expanded
+    return f"{expanded} {' '.join(additions)}"
+
+
 class QueryProcessor:
     def __init__(
         self,
@@ -318,6 +438,7 @@ class QueryProcessor:
     def process(self, query: str) -> ProcessedQuery:
         normalized = normalize_query_text(query)
         expanded = self.expander.expand(normalized)
+        expanded = expand_multilingual_product_terms(normalized, expanded)
         explicit_codes = detect_is_codes(query)
 
         return ProcessedQuery(

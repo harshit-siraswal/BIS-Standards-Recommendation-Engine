@@ -1,0 +1,139 @@
+{
+  "total_queries": 200,
+  "hit_rate_at_1": 99.0,
+  "hit_rate_at_3": 100.0,
+  "hit_rate_at_5": 100.0,
+  "mrr_at_5": 0.9942,
+  "avg_latency_seconds": 0.0296,
+  "p95_latency_seconds": 0.0561,
+  "max_latency_seconds": 0.0684,
+  "by_style": {
+    "direct_code": {
+      "queries": 10,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 0.95,
+      "top1": 90.0
+    },
+    "english_public_like": {
+      "queries": 40,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    },
+    "french": {
+      "queries": 10,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    },
+    "hindi_devanagari": {
+      "queries": 20,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    },
+    "hinglish": {
+      "queries": 20,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    },
+    "noisy_typos": {
+      "queries": 20,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 0.9667,
+      "top1": 95.0
+    },
+    "short_telegraphic": {
+      "queries": 30,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    },
+    "spanish": {
+      "queries": 20,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    },
+    "tamil_transliterated": {
+      "queries": 10,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    },
+    "underspecified": {
+      "queries": 20,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    }
+  },
+  "by_target": {
+    "33 Grade Ordinary Portland Cement": {
+      "queries": 20,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    },
+    "Calcined Clay Portland Pozzolana Cement": {
+      "queries": 20,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    },
+    "Coarse and Fine Aggregates": {
+      "queries": 20,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    },
+    "Corrugated Asbestos Cement Sheets": {
+      "queries": 20,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    },
+    "Lightweight Concrete Masonry Blocks": {
+      "queries": 20,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 0.975,
+      "top1": 95.0
+    },
+    "Masonry Cement": {
+      "queries": 20,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    },
+    "Portland Slag Cement": {
+      "queries": 20,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    },
+    "Precast Concrete Pipes": {
+      "queries": 20,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    },
+    "Supersulphated Cement": {
+      "queries": 20,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 1.0,
+      "top1": 100.0
+    },
+    "White Portland Cement": {
+      "queries": 20,
+      "hit_rate_at_3": 100.0,
+      "mrr_at_5": 0.9667,
+      "top1": 95.0
+    }
+  },
+  "rank_distribution": {
+    "1": 198,
+    "2": 1,
+    "3": 1
+  }
+}

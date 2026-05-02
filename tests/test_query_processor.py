@@ -45,6 +45,14 @@ def test_marine_works_expands_to_supersulphated():
     assert "ssc" in pq.expanded
 
 
+def test_multilingual_product_phrase_expands_to_catalog_terms():
+    qp = QueryProcessor()
+    pq = qp.process("\u0938\u092b\u0947\u0926 \u092a\u094b\u0930\u094d\u091f\u0932\u0948\u0902\u0921 \u0938\u0940\u092e\u0947\u0902\u091f")
+
+    assert "white portland cement" in pq.expanded
+    assert "architectural decorative chemical physical requirements" in pq.expanded
+
+
 def test_explicit_code_detection():
     qp = QueryProcessor()
     pq = qp.process("Does IS 269: 1989 apply to my product?")
