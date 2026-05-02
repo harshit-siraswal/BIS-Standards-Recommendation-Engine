@@ -50,8 +50,10 @@ def test_rerank_scores_pairs_and_combines_with_retrieval_score():
     results = reranker.rerank("white portland cement", candidates, top_k=2)
 
     assert [result.standard["is_code"] for result in results] == ["IS 8042: 1989", "IS 269: 1989"]
-    assert candidates[2].score == pytest.approx(0.7 * 0.80 + 0.3 * 0.20)
-    assert candidates[0].score == pytest.approx(0.7 * 0.20 + 0.3 * 0.10)
+    assert results[0].score == pytest.approx(0.7 * 0.80 + 0.3 * 0.20)
+    assert results[1].score == pytest.approx(0.7 * 0.20 + 0.3 * 0.10)
+    assert candidates[2].score == pytest.approx(0.20)
+    assert candidates[0].score == pytest.approx(0.10)
     assert model.calls[0]["batch_size"] == 32
     assert model.calls[0]["show_progress_bar"] is False
     assert model.calls[0]["convert_to_numpy"] is True
@@ -72,7 +74,8 @@ def test_rerank_limits_cross_encoder_input_window():
 
     assert len(model.calls[0]["pairs"]) == RERANK_INPUT_K
     assert len(results) == 5
-    assert all(result in candidates[:RERANK_INPUT_K] for result in results)
+    input_codes = {candidate.standard["is_code"] for candidate in candidates[:RERANK_INPUT_K]}
+    assert all(result.standard["is_code"] in input_codes for result in results)
 
 
 def test_rerank_safe_falls_back_to_original_scores():

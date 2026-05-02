@@ -66,24 +66,21 @@
       "white portland cement",
       "architectural cement",
       "decorative cement",
-      "non-structural cement",
-      "nonstructural cement"
+      "non-structural cement"
     ],
     "white portland cement": [
       "white cement",
       "architectural cement",
       "decorative cement",
       "non-structural cement",
-      "low iron cement",
-      "nonstructural cement"
+      "low iron cement"
     ],
     "masonry cement": [
       "masonry mortar cement",
       "mortar cement",
       "non-structural cement",
       "general purpose mortar",
-      "masonry mortar",
-      "non structural cement"
+      "masonry mortar"
     ],
     "supersulphated cement": [
       "ssc",
@@ -233,9 +230,8 @@
       "lightweight concrete masonry block",
       "hollow concrete block",
       "solid concrete block",
-      "load bearing block",
-      "non load bearing block",
-      "non-load bearing block"
+      "load-bearing block",
+      "non-load-bearing block"
     ],
     "hollow block": [
       "hollow concrete block",
@@ -314,7 +310,6 @@
     "structural": [
       "structural concrete",
       "structural use",
-      "load bearing",
       "load-bearing"
     ],
     "marine": [

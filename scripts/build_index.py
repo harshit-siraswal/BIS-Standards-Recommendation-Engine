@@ -13,8 +13,14 @@ from src.parser import parse_pdf_to_catalog  # noqa: E402
 
 
 def main() -> int:
-    parse_pdf_to_catalog("dataset.pdf", "data/standards_catalog.json")
-    build_all_indexes("data/standards_catalog.json", "data")
+    catalog_path = ROOT / "data" / "standards_catalog.json"
+    data_dir = ROOT / "data"
+    try:
+        parse_pdf_to_catalog(str(ROOT / "dataset.pdf"), str(catalog_path))
+        build_all_indexes(str(catalog_path), str(data_dir))
+    except Exception as exc:
+        print(f"Failed to rebuild BIS index artifacts: {exc}", file=sys.stderr)
+        return 1
     return 0
 
 

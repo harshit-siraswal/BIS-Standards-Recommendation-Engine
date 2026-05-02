@@ -53,7 +53,8 @@ def run_file(
         )
 
     output = Path(output_path)
-    output.parent.mkdir(parents=True, exist_ok=True) if output.parent != Path(".") else None
+    if output.parent != Path("."):
+        output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(results, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return results
 

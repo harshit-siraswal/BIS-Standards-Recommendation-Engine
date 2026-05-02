@@ -34,7 +34,7 @@ Optional Cross-Encoder Reranker -> Top 5 standards
 
 ## Key Design Decisions
 
-1. Hybrid retrieval keeps BM25 exact terminology and FAISS semantic artifacts available, while the default run avoids dense inference latency.
+1. The default run uses BM25 plus deterministic boosts; FAISS dense retrieval artifacts remain available and use `DENSE_TOP_K = 50` when `retriever.use_dense` is enabled, while the cross-encoder reranker is opt-in via `--use-reranker`.
 2. Domain synonym expansion captures BIS-specific abbreviations such as OPC, PPC, PSC, SSC, CMU, HDPE, UPVC, and GRP.
 3. Explicit IS-code and product-family boosts protect high-confidence matches for known public-set families.
 4. The cross-encoder reranker remains optional through `--use-reranker` so offline deterministic runs do not depend on model loading.
@@ -63,4 +63,4 @@ python run.py --input public_test_set.json --output results.json --rebuild
 python eval_script.py --results results.json
 ```
 
-Random seeds are set for Python, and for NumPy/Torch when those modules are already loaded.
+Random seeds are set for Python; NumPy and PyTorch seeding is applied only when those libraries are already loaded in the process.
