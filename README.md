@@ -20,7 +20,14 @@ The parser writes `data/standards_catalog.json`.
 python -m src.indexer --catalog data/standards_catalog.json --output-dir data
 ```
 
-The indexer writes dense, sparse, and exact-code lookup artifacts under `data/`.
+The indexer builds a FAISS HNSW dense index with `BAAI/bge-small-en-v1.5`,
+a BM25 sparse index over the same chunk text, a normalized IS-code lookup, and
+an indexed catalog with `chunk_text` attached:
+
+- `data/faiss.index`
+- `data/bm25.pkl`
+- `data/codes.json`
+- `data/standards_indexed.json`
 
 ## Process a query
 
