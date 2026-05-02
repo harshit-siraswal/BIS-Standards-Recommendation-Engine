@@ -616,6 +616,11 @@ INDEX_HTML = """
       padding: 18px;
     }
 
+    .panel.assistant-panel {
+      padding: 0;
+      overflow: hidden;
+    }
+
     .notice {
       border-left: 4px solid var(--saffron);
     }
@@ -963,16 +968,6 @@ INDEX_HTML = """
           </div>
         </form>
 
-        <section class="results assistant-panel" aria-live="polite">
-          <div class="results-header">
-            <h2 data-assistant-i18n="title">Business Compliance Assistant</h2>
-            <span class="latency" data-assistant-i18n="ready">Next steps</span>
-          </div>
-          <div id="guidanceBody" class="guidance assistant-empty">
-            <p data-assistant-i18n="empty">Run a standards search to view matched category, key terms, document readiness, testing readiness, and verification notes.</p>
-          </div>
-        </section>
-
         <section class="results" id="results" aria-live="polite">
           <div class="results-header">
             <h2 data-i18n="resultsTitle">Relevant Indian Standards</h2>
@@ -985,6 +980,15 @@ INDEX_HTML = """
       </div>
 
       <aside class="side-stack">
+        <section class="panel assistant-panel" aria-live="polite">
+          <div class="results-header">
+            <h2 data-assistant-i18n="title">Business Compliance Assistant</h2>
+            <span class="latency" data-assistant-i18n="ready">Next steps</span>
+          </div>
+          <div id="guidanceBody" class="guidance assistant-empty">
+            <p data-assistant-i18n="empty">Run a standards search to view matched category, key terms, document readiness, testing readiness, and verification notes.</p>
+          </div>
+        </section>
         <section class="panel notice">
           <h2 data-i18n="scopeTitle">Catalogue scope</h2>
           <p data-i18n="scopeCopy">The service uses available BIS catalogue data. If a product is outside the current catalogue, it will show a verification advisory instead of unrelated standards.</p>
