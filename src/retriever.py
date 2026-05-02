@@ -69,7 +69,7 @@ class HybridRetriever:
     def _missing_artifacts_message(paths: list[Path]) -> str:
         missing = ", ".join(str(path) for path in paths if not path.exists())
         return (
-            "Plan 02 index artifacts are missing: "
+            "Retrieval artifacts are missing: "
             f"{missing}. Build them with `python -m src.indexer --catalog "
             "data/standards_catalog.json --output-dir data`."
         )
