@@ -846,12 +846,12 @@ INDEX_HTML = """
 
     .saarthi-mascot {
       position: relative;
-      width: 38px;
-      height: 42px;
+      width: 42px;
+      height: 46px;
       border-radius: 50% 50% 44% 44%;
-      background: #fff7ed;
-      border: 2px solid rgba(8, 54, 111, 0.22);
-      box-shadow: inset 0 -6px 0 rgba(255, 153, 51, 0.16);
+      background: linear-gradient(180deg, #fff7ed 0 66%, #fff2df 66% 100%);
+      border: 2px solid rgba(8, 54, 111, 0.24);
+      box-shadow: inset 0 -6px 0 rgba(255, 153, 51, 0.13), 0 2px 10px rgba(8, 54, 111, 0.13);
       overflow: hidden;
     }
 
@@ -859,53 +859,53 @@ INDEX_HTML = """
       content: "";
       position: absolute;
       left: 8px;
-      top: 4px;
-      width: 22px;
-      height: 19px;
-      border-radius: 50% 50% 44% 44%;
+      top: 3px;
+      width: 25px;
+      height: 25px;
+      border-radius: 55% 45% 48% 52%;
       background: #2b1c16;
-      box-shadow: 8px 2px 0 #2b1c16;
+      box-shadow: 9px 4px 0 #2b1c16, -3px 11px 0 #2b1c16;
     }
 
     .saarthi-mascot::after {
       content: "";
       position: absolute;
-      left: 12px;
-      top: 12px;
-      width: 15px;
-      height: 14px;
-      border-radius: 50%;
-      background: #9b5c37;
-      box-shadow: 4px 6px 0 -1px #8c4f31;
+      left: 13px;
+      top: 13px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50% 48% 52% 50%;
+      background: #a7653d;
+      box-shadow: 5px 7px 0 -2px #8c4f31;
     }
 
     .saarthi-saree {
       position: absolute;
-      left: 7px;
+      left: 6px;
       right: 5px;
-      bottom: -2px;
-      height: 18px;
-      border-radius: 11px 11px 3px 3px;
-      background: linear-gradient(135deg, var(--saffron) 0 42%, #f7f9fc 42% 50%, var(--india-green) 50% 100%);
+      bottom: -1px;
+      height: 19px;
+      border-radius: 12px 12px 3px 3px;
+      background: linear-gradient(135deg, #f89b29 0 44%, #fff7ed 44% 53%, var(--india-green) 53% 100%);
     }
 
     .saarthi-saree::before {
       content: "";
       position: absolute;
-      left: 4px;
-      top: -11px;
-      width: 16px;
-      height: 29px;
+      left: 5px;
+      top: -14px;
+      width: 17px;
+      height: 33px;
       border-radius: 9px 9px 2px 2px;
-      background: rgba(255, 153, 51, 0.92);
-      transform: rotate(-18deg);
+      background: linear-gradient(180deg, #ffad4d, #f1871f);
+      transform: rotate(-22deg);
       transform-origin: bottom center;
     }
 
     .saarthi-dot {
       position: absolute;
-      left: 18px;
-      top: 13px;
+      left: 20px;
+      top: 14px;
       width: 3px;
       height: 3px;
       border-radius: 50%;
@@ -945,6 +945,7 @@ INDEX_HTML = """
       color: var(--ink);
       background: var(--white);
       border: 1px solid var(--line);
+      white-space: pre-wrap;
     }
 
     .chat-message.user {
@@ -1000,6 +1001,25 @@ INDEX_HTML = """
       color: inherit;
       font-weight: 900;
       overflow-wrap: anywhere;
+    }
+
+    .chat-steps {
+      margin: 0;
+      padding-left: 22px;
+      display: grid;
+      gap: 8px;
+      white-space: normal;
+    }
+
+    .chat-steps li {
+      padding-left: 2px;
+    }
+
+    .chat-final-note {
+      margin: 10px 0 0;
+      font-weight: 800;
+      color: var(--warning);
+      white-space: normal;
     }
 
     footer {
@@ -2619,7 +2639,36 @@ INDEX_HTML = """
     }
 
     function renderChatContent(content) {
-      return escapeHtml(content).replace(
+      const safe = escapeHtml(content);
+      const stepPattern = /Step\s+\d+:\s+/g;
+      const stepMatches = [...safe.matchAll(stepPattern)];
+      if (stepMatches.length >= 2) {
+        const intro = safe.slice(0, stepMatches[0].index).trim();
+        const tailStart = stepMatches[0].index;
+        const tail = safe.slice(tailStart);
+        const parts = tail.split(/(?=Step\s+\d+:\s+)/g).filter(Boolean);
+        const listItems = [];
+        let finalNote = "";
+        parts.forEach((part) => {
+          const nextDisclosure = part.indexOf("Verify with BIS before");
+          if (nextDisclosure >= 0) {
+            const before = part.slice(0, nextDisclosure).trim();
+            if (before) listItems.push(before.replace(/^Step\s+\d+:\s*/, ""));
+            finalNote = part.slice(nextDisclosure).trim();
+          } else {
+            listItems.push(part.trim().replace(/^Step\s+\d+:\s*/, ""));
+          }
+        });
+        const introHtml = intro ? `<p>${linkify(intro)}</p>` : "";
+        const stepsHtml = `<ol class="chat-steps">${listItems.map((item) => `<li>${linkify(item)}</li>`).join("")}</ol>`;
+        const noteHtml = finalNote ? `<p class="chat-final-note">${linkify(finalNote)}</p>` : "";
+        return `${introHtml}${stepsHtml}${noteHtml}`;
+      }
+      return linkify(safe);
+    }
+
+    function linkify(safeHtml) {
+      return safeHtml.replace(
         /(https?:\/\/[^\s<]+)/g,
         (url) => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`
       );
@@ -3147,8 +3196,20 @@ def _fallback_chat_answer(
     retrieved_codes: list[str],
     recommendations: list[dict[str, Any]],
     out_of_scope: bool,
+    language: str = "en",
 ) -> str:
+    lang = language if language in {"hi", "hinglish"} else "en"
     if out_of_scope or not retrieved_codes:
+        if lang == "hi":
+            return (
+                "इस उत्पाद के लिए वर्तमान retrieval result में BIS कैटलॉग मैच नहीं मिला। "
+                f"लागू मानक सत्यापित करने के लिए official BIS portal या Manak Online देखें। {FALLBACK_CHAT_DISCLOSURE}"
+            )
+        if lang == "hinglish":
+            return (
+                "Is product ke liye current retrieval result mein BIS catalogue match nahi mila. "
+                f"Applicable standard verify karne ke liye official BIS portal ya Manak Online dekhein. {FALLBACK_CHAT_DISCLOSURE}"
+            )
         return (
             "I do not have a returned BIS catalogue match for this product in the current retrieval result. "
             f"Use the official BIS portal or Manak Online to verify the applicable standard. {FALLBACK_CHAT_DISCLOSURE}"
@@ -3180,6 +3241,26 @@ def _fallback_chat_answer(
     )
 
     if wants_process:
+        if lang == "hi":
+            return (
+                f"Step 1: अभी {top_code} को सबसे मजबूत candidate मानें और exact product grade, material और intended use को official standard text से verify करें. Standard lookup: {BIS_STANDARD_LOOKUP_URL}\n"
+                f"Step 2: Product के लिए सही certification route समझने के लिए BIS product certification guidance देखें. Official overview: {BIS_PRODUCT_CERTIFICATION_URL}\n"
+                "Step 3: Product variant details, manufacturing process note, quality-control records, raw-material specifications और sample batch traceability तैयार करें.\n"
+                "Step 4: Official standard requirements के against testing के लिए appropriate competent lab और representative samples ready करें.\n"
+                f"Step 5: Online application/licence-related actions के लिए Manak Online use करें. Portal/help links: {MANAK_ONLINE_URL}\n"
+                f"Step 6: अगर applicable Indian Standard clear नहीं है, filing से पहले BIS FAQ देखें और BIS से verify/contact करें. FAQ: {BIS_FAQ_URL}\n"
+                f"{FALLBACK_CHAT_DISCLOSURE}"
+            )
+        if lang == "hinglish":
+            return (
+                f"Step 1: Abhi {top_code} ko strongest candidate treat karein aur exact product grade, material, intended use official standard text se verify karein. Standard lookup: {BIS_STANDARD_LOOKUP_URL}\n"
+                f"Step 2: Product ke liye correct certification route samajhne ke liye BIS product certification guidance dekhein. Official overview: {BIS_PRODUCT_CERTIFICATION_URL}\n"
+                "Step 3: Product variant details, manufacturing process note, quality-control records, raw-material specifications aur sample batch traceability prepare karein.\n"
+                "Step 4: Official standard requirements ke against testing ke liye appropriate competent lab aur representative samples ready karein.\n"
+                f"Step 5: Online application/licence-related actions ke liye Manak Online use karein. Portal/help links: {MANAK_ONLINE_URL}\n"
+                f"Step 6: Applicable Indian Standard clear na ho to filing se pehle BIS FAQ dekhein aur BIS se verify/contact karein. FAQ: {BIS_FAQ_URL}\n"
+                f"{FALLBACK_CHAT_DISCLOSURE}"
+            )
         return (
             f"Step 1: Treat {top_code} as the strongest candidate for now and verify the exact product grade, "
             f"material, and intended use against the official standard text. Standard lookup: {BIS_STANDARD_LOOKUP_URL}\n"
@@ -3196,6 +3277,16 @@ def _fallback_chat_answer(
         )
 
     if any(term in lower for term in ("why", "match", "selected", "applicable", "which")):
+        if lang == "hi":
+            return (
+                f"सबसे मजबूत candidate {top_code} है क्योंकि इसका catalogue title/scope product description के सबसे करीब है: "
+                f"{top_title}. बाकी candidates ({other_codes}) related catalogue matches हैं; exact grade, material और intended use official BIS text से verify करें. {FALLBACK_CHAT_DISCLOSURE}"
+            )
+        if lang == "hinglish":
+            return (
+                f"Strongest candidate {top_code} hai kyunki iska catalogue title/scope product description ke closest hai: "
+                f"{top_title}. Baaki candidates ({other_codes}) related catalogue matches hain; exact grade, material aur intended use official BIS text se verify karein. {FALLBACK_CHAT_DISCLOSURE}"
+            )
         return (
             f"The strongest candidate is {top_code} because its catalogue title/scope is closest to the "
             f"product description: {top_title}. Other returned candidates ({other_codes}) are related catalogue "
@@ -3203,16 +3294,46 @@ def _fallback_chat_answer(
             f"are checked against the official BIS text. {FALLBACK_CHAT_DISCLOSURE}"
         )
     if any(term in lower for term in ("document", "prepare", "paper", "record")):
+        if lang == "hi":
+            return (
+                "Product description, grade/material details, manufacturing process note, quality-control records, raw material specifications, supplier records और sample batch traceability तैयार करें. "
+                f"Returned standards ({codes}) को BIS से verify करें. {FALLBACK_CHAT_DISCLOSURE}"
+            )
+        if lang == "hinglish":
+            return (
+                "Product description, grade/material details, manufacturing process note, quality-control records, raw material specifications, supplier records aur sample batch traceability prepare karein. "
+                f"Returned standards ({codes}) ko BIS se verify karein. {FALLBACK_CHAT_DISCLOSURE}"
+            )
         return (
             "Prepare a product description, grade/material details, manufacturing process note, quality-control "
             "records, raw material specifications, supplier records, and sample batch traceability. "
             f"Use these documents to verify the returned standards ({codes}) with BIS. {FALLBACK_CHAT_DISCLOSURE}"
         )
     if any(term in lower for term in ("test", "lab", "sample")):
+        if lang == "hi":
+            return (
+                "Representative samples batch traceability के साथ तैयार करें, competent labs identify करें, और returned standards "
+                f"({codes}) के official text के against required test parameters compare करें. {FALLBACK_CHAT_DISCLOSURE}"
+            )
+        if lang == "hinglish":
+            return (
+                "Representative samples batch traceability ke saath prepare karein, competent labs identify karein, aur returned standards "
+                f"({codes}) ke official text ke against required test parameters compare karein. {FALLBACK_CHAT_DISCLOSURE}"
+            )
         return (
             "Prepare representative samples with batch traceability, identify competent labs, and compare required "
             f"test parameters against the official text for the returned standards ({codes}). "
             f"{FALLBACK_CHAT_DISCLOSURE}"
+        )
+    if lang == "hi":
+        return (
+            f"मैं केवल returned standards के आधार पर answer कर सकता हूँ: {codes}. Top candidate {top_code} ({top_title}) है. "
+            f"आप match reason, documents, testing readiness या next steps पूछ सकते हैं. {FALLBACK_CHAT_DISCLOSURE}"
+        )
+    if lang == "hinglish":
+        return (
+            f"Main sirf returned standards ke basis par answer kar sakta hoon: {codes}. Top candidate {top_code} ({top_title}) hai. "
+            f"Aap match reason, documents, testing readiness ya next steps pooch sakte hain. {FALLBACK_CHAT_DISCLOSURE}"
         )
     return (
         f"I can answer using only the returned standards: {codes}. The top candidate is {top_code} ({top_title}). "
@@ -3306,11 +3427,12 @@ def _chat_answer(
     retrieved_codes: list[str],
     recommendations: list[dict[str, Any]],
     out_of_scope: bool,
+    language: str = "en",
 ) -> tuple[str, bool]:
     generated = _groq_chat_answer(query, message, history, retrieved_codes, recommendations)
     if generated is not None:
         return generated, True
-    return _fallback_chat_answer(message, retrieved_codes, recommendations, out_of_scope), False
+    return _fallback_chat_answer(message, retrieved_codes, recommendations, out_of_scope, language), False
 
 
 def _business_guidance(
@@ -3697,6 +3819,7 @@ def chat(payload: ChatRequest) -> dict[str, Any]:
         retrieved_codes=result["retrieved_standards"],
         recommendations=recommendations,
         out_of_scope=bool(result.get("out_of_scope")),
+        language=payload.language,
     )
     return {
         "answer": answer,

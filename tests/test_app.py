@@ -220,6 +220,26 @@ def test_chat_endpoint_gives_step_by_step_links_for_application_questions(monkey
     assert "Verify with BIS" in payload["answer"]
 
 
+def test_chat_endpoint_uses_selected_language_for_fallback(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+
+    response = client.post(
+        "/chat",
+        json={
+            "query": "33 grade ordinary portland cement for building construction",
+            "message": "step by step process batao",
+            "top_k": 5,
+            "language": "hinglish",
+        },
+    )
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert "Abhi" in payload["answer"]
+    assert "verify karein" in payload["answer"]
+    assert "https://www.manakonline.in/MANAK/impLinks" in payload["answer"]
+
+
 def test_chat_endpoint_handles_out_of_scope_without_inventing_standards(monkeypatch):
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
 
