@@ -1,0 +1,451 @@
+{
+  "cement_types": {
+    "opc": [
+      "ordinary portland cement",
+      "33 grade cement",
+      "43 grade cement",
+      "53 grade cement",
+      "portland cement",
+      "ordinary cement",
+      "general purpose cement"
+    ],
+    "ordinary portland cement": [
+      "opc",
+      "ordinary cement",
+      "33 grade opc",
+      "33 grade cement",
+      "43 grade opc",
+      "53 grade opc",
+      "portland cement"
+    ],
+    "ppc": [
+      "portland pozzolana cement",
+      "pozzolana cement",
+      "fly ash based cement",
+      "calcined clay cement",
+      "calcined clay based",
+      "fly ash based"
+    ],
+    "portland pozzolana cement": [
+      "ppc",
+      "pozzolana cement",
+      "fly ash based cement",
+      "calcined clay cement",
+      "is 1489",
+      "part 1 fly ash based",
+      "part 2 calcined clay based"
+    ],
+    "calcined clay based": [
+      "portland pozzolana cement",
+      "pozzolana cement",
+      "ppc",
+      "calcined clay pozzolana",
+      "part 2",
+      "is 1489 part 2"
+    ],
+    "fly ash based": [
+      "portland pozzolana cement",
+      "pozzolana cement",
+      "ppc",
+      "fly ash pozzolana",
+      "part 1",
+      "is 1489 part 1"
+    ],
+    "psc": [
+      "portland slag cement",
+      "slag cement",
+      "blast furnace slag cement"
+    ],
+    "portland slag cement": [
+      "psc",
+      "slag cement",
+      "blast furnace slag cement",
+      "granulated slag cement"
+    ],
+    "white cement": [
+      "white portland cement",
+      "architectural cement",
+      "decorative cement",
+      "nonstructural cement"
+    ],
+    "white portland cement": [
+      "white cement",
+      "architectural cement",
+      "decorative cement",
+      "nonstructural cement",
+      "low iron cement"
+    ],
+    "masonry cement": [
+      "masonry mortar cement",
+      "mortar cement",
+      "non structural cement",
+      "non-structural cement",
+      "general purpose mortar",
+      "masonry mortar"
+    ],
+    "supersulphated cement": [
+      "ssc",
+      "supersulphated portland cement",
+      "marine cement",
+      "sulphate resistant cement",
+      "aggressive water cement",
+      "sea water cement"
+    ],
+    "ssc": [
+      "supersulphated cement",
+      "marine cement",
+      "sulphate resistant cement",
+      "aggressive water cement"
+    ],
+    "rapid hardening cement": [
+      "rapid setting cement",
+      "high early strength cement",
+      "quick setting cement"
+    ],
+    "low heat cement": [
+      "low heat portland cement",
+      "mass concrete cement"
+    ],
+    "sulphate resisting": [
+      "sulphate resistant",
+      "sulfate resistant",
+      "sr cement",
+      "marine works cement"
+    ],
+    "hydrophobic cement": [
+      "water repellent cement",
+      "moisture resistant cement"
+    ],
+    "high alumina cement": [
+      "hac",
+      "aluminous cement",
+      "structural high alumina cement"
+    ],
+    "hac": [
+      "high alumina cement",
+      "aluminous cement"
+    ]
+  },
+  "aggregates": {
+    "aggregate": [
+      "aggregates",
+      "coarse aggregate",
+      "fine aggregate",
+      "sand",
+      "gravel",
+      "crushed stone",
+      "natural sources aggregate"
+    ],
+    "aggregates": [
+      "aggregate",
+      "coarse aggregate",
+      "fine aggregate",
+      "sand",
+      "gravel",
+      "natural sources aggregate"
+    ],
+    "coarse aggregate": [
+      "coarse aggregates",
+      "natural coarse aggregate",
+      "gravel",
+      "crushed stone",
+      "structural concrete aggregate"
+    ],
+    "fine aggregate": [
+      "fine aggregates",
+      "natural fine aggregate",
+      "sand",
+      "river sand",
+      "natural sand",
+      "structural concrete aggregate"
+    ],
+    "natural sources": [
+      "natural aggregate",
+      "natural sources aggregate",
+      "river sand",
+      "natural sand",
+      "gravel",
+      "crushed stone"
+    ],
+    "structural concrete": [
+      "concrete works",
+      "mass concrete",
+      "load bearing concrete",
+      "structural use"
+    ]
+  },
+  "concrete_products": {
+    "rcc": [
+      "reinforced cement concrete",
+      "reinforced concrete",
+      "reinforced concrete cement"
+    ],
+    "reinforcement": [
+      "reinforced concrete",
+      "rcc",
+      "with reinforcement",
+      "reinforced cement concrete"
+    ],
+    "concrete pipe": [
+      "precast concrete pipe",
+      "precast concrete pipes",
+      "rcc pipe",
+      "cement concrete pipe",
+      "water main",
+      "sewer",
+      "culvert",
+      "irrigation pipe"
+    ],
+    "precast concrete pipe": [
+      "concrete pipe",
+      "precast concrete pipes",
+      "reinforced pipe",
+      "unreinforced pipe",
+      "water mains",
+      "sewers",
+      "culverts",
+      "irrigation"
+    ],
+    "concrete block": [
+      "masonry block",
+      "hollow block",
+      "solid block",
+      "lightweight block",
+      "concrete masonry unit",
+      "cmu"
+    ],
+    "concrete masonry unit": [
+      "cmu",
+      "concrete block",
+      "masonry block",
+      "hollow concrete block",
+      "solid concrete block"
+    ],
+    "cmu": [
+      "concrete masonry unit",
+      "concrete masonry units",
+      "concrete block",
+      "masonry block"
+    ],
+    "lightweight concrete block": [
+      "lightweight concrete masonry block",
+      "hollow concrete block",
+      "solid concrete block",
+      "load bearing block",
+      "non load bearing block",
+      "non-load bearing block"
+    ],
+    "hollow block": [
+      "hollow concrete block",
+      "hollow masonry block",
+      "lightweight concrete block",
+      "concrete masonry unit"
+    ],
+    "solid block": [
+      "solid concrete block",
+      "solid masonry block",
+      "lightweight concrete block",
+      "concrete masonry unit"
+    ],
+    "asbestos sheet": [
+      "corrugated sheet",
+      "semi-corrugated sheet",
+      "ac sheet",
+      "asbestos cement sheet",
+      "roofing sheet",
+      "cladding sheet"
+    ],
+    "asbestos cement sheet": [
+      "asbestos sheet",
+      "corrugated asbestos cement sheet",
+      "semi corrugated asbestos cement sheet",
+      "ac sheet",
+      "roofing sheet",
+      "cladding sheet"
+    ],
+    "ac sheet": [
+      "asbestos cement sheet",
+      "asbestos sheet",
+      "corrugated sheet",
+      "roofing sheet"
+    ]
+  },
+  "pipes_and_plastics": {
+    "hdpe": [
+      "high density polyethylene",
+      "polyethylene fitting",
+      "potable water supply fitting",
+      "water supply fitting"
+    ],
+    "upvc": [
+      "unplasticised polyvinyl chloride",
+      "unplasticized polyvinyl chloride",
+      "soil waste discharge pipe",
+      "rain water pipe",
+      "ventilation pipe"
+    ],
+    "grp": [
+      "glass fibre reinforced plastics",
+      "glass fiber reinforced plastics",
+      "glass reinforced polyester",
+      "potable water supply pipe",
+      "pipes joints and fittings"
+    ],
+    "spun pipe": [
+      "centrifugally cast pipe",
+      "spun iron pipe",
+      "pressure pipe",
+      "water gas sewage pipe"
+    ],
+    "ci pipe": [
+      "cast iron pipe",
+      "iron pressure pipe",
+      "water gas sewage pipe"
+    ],
+    "di pipe": [
+      "ductile iron pipe",
+      "ductile iron pressure pipe",
+      "water gas sewage pipe"
+    ]
+  },
+  "applications": {
+    "structural": [
+      "structural concrete",
+      "structural use",
+      "load bearing",
+      "load-bearing"
+    ],
+    "marine": [
+      "marine works",
+      "sea water",
+      "seawater",
+      "aggressive water",
+      "coastal construction",
+      "supersulphated cement",
+      "ssc"
+    ],
+    "marine works": [
+      "marine",
+      "sea water",
+      "seawater",
+      "aggressive water",
+      "coastal construction",
+      "supersulphated cement",
+      "ssc"
+    ],
+    "aggressive water": [
+      "marine works",
+      "sea water",
+      "coastal construction",
+      "supersulphated cement",
+      "ssc"
+    ],
+    "water main": [
+      "water mains",
+      "water supply",
+      "water pipe",
+      "potable water",
+      "water distribution",
+      "precast concrete pipe"
+    ],
+    "water mains": [
+      "water main",
+      "water supply",
+      "water pipe",
+      "potable water",
+      "water distribution",
+      "precast concrete pipe"
+    ],
+    "roofing": [
+      "roof",
+      "roofing material",
+      "roofing sheet",
+      "cladding",
+      "weather exposed surface"
+    ],
+    "cladding": [
+      "roofing",
+      "roofing sheet",
+      "wall cladding",
+      "building wall sheet"
+    ]
+  },
+  "standards_terms": {
+    "specification": [
+      "spec",
+      "requirements",
+      "standard",
+      "is code",
+      "indian standard"
+    ],
+    "requirements": [
+      "specification",
+      "spec",
+      "standard",
+      "is code",
+      "indian standard"
+    ],
+    "manufacture": [
+      "manufacturing",
+      "production",
+      "produce",
+      "make",
+      "plant"
+    ],
+    "chemical and physical": [
+      "chemical requirements",
+      "physical requirements",
+      "properties",
+      "composition",
+      "testing"
+    ],
+    "chemical requirements": [
+      "chemical and physical",
+      "physical requirements",
+      "composition",
+      "testing"
+    ],
+    "physical requirements": [
+      "chemical and physical",
+      "chemical requirements",
+      "properties",
+      "testing"
+    ],
+    "dimensions": [
+      "dimension",
+      "size",
+      "sizes",
+      "dimensional requirements"
+    ],
+    "testing": [
+      "test",
+      "tests",
+      "methods of test",
+      "composition",
+      "requirements"
+    ]
+  },
+  "grades": {
+    "33 grade": [
+      "grade 33",
+      "33 mpa",
+      "33 grade cement",
+      "ordinary portland cement",
+      "opc"
+    ],
+    "43 grade": [
+      "grade 43",
+      "43 mpa",
+      "43 grade cement",
+      "ordinary portland cement",
+      "opc"
+    ],
+    "53 grade": [
+      "grade 53",
+      "53 mpa",
+      "53 grade cement",
+      "ordinary portland cement",
+      "opc"
+    ]
+  }
+}
