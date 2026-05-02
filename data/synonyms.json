@@ -2,21 +2,21 @@
   "cement_types": {
     "opc": [
       "ordinary portland cement",
-      "33 grade cement",
-      "43 grade cement",
-      "53 grade cement",
       "portland cement",
       "ordinary cement",
-      "general purpose cement"
+      "general purpose cement",
+      "33 grade cement",
+      "43 grade cement",
+      "53 grade cement"
     ],
     "ordinary portland cement": [
       "opc",
       "ordinary cement",
+      "portland cement",
       "33 grade opc",
       "33 grade cement",
       "43 grade opc",
-      "53 grade opc",
-      "portland cement"
+      "53 grade opc"
     ],
     "ppc": [
       "portland pozzolana cement",
@@ -66,22 +66,24 @@
       "white portland cement",
       "architectural cement",
       "decorative cement",
+      "non-structural cement",
       "nonstructural cement"
     ],
     "white portland cement": [
       "white cement",
       "architectural cement",
       "decorative cement",
-      "nonstructural cement",
-      "low iron cement"
+      "non-structural cement",
+      "low iron cement",
+      "nonstructural cement"
     ],
     "masonry cement": [
       "masonry mortar cement",
       "mortar cement",
-      "non structural cement",
       "non-structural cement",
       "general purpose mortar",
-      "masonry mortar"
+      "masonry mortar",
+      "non structural cement"
     ],
     "supersulphated cement": [
       "ssc",

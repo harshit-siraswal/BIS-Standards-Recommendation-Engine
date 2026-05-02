@@ -20,11 +20,20 @@ def test_expansion_opc():
     assert "portland" in pq.tokens
 
 
+def test_grade_expansion_does_not_cross_pollute_other_grades():
+    qp = QueryProcessor()
+    pq = qp.process("43 grade OPC")
+
+    assert "ordinary portland cement" in pq.expanded
+    assert "43 grade cement" in pq.expanded
+
+
 def test_expansion_ppc_calcined():
     qp = QueryProcessor()
     pq = qp.process("calcined clay based pozzolana cement")
 
-    assert "ppc" in pq.expanded or "portland pozzolana cement" in pq.expanded
+    assert "ppc" in pq.expanded
+    assert "portland pozzolana cement" in pq.expanded
     assert "is 1489 part 2" in pq.expanded
 
 

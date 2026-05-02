@@ -55,7 +55,7 @@ def _code_token(match: re.Match[str]) -> str:
     number = _normalize_code_number(match.group(1))
     part = _normalize_code_number(match.group(2)) if match.group(2) else "0"
     year = match.group(3)
-    return f" iscode{number}p{part}y{year} " if year else " "
+    return f" iscode{number}p{part}y{year} " if year else match.group(0)
 
 
 def fallback_tokenize(text: str) -> list[str]:
@@ -108,8 +108,13 @@ class SynonymExpander:
 
     def __init__(self, synonyms_path: str | Path = DEFAULT_SYNONYMS_PATH):
         self.synonyms_path = Path(synonyms_path)
-        with self.synonyms_path.open(encoding="utf-8") as file:
-            data = json.load(file)
+        try:
+            with self.synonyms_path.open(encoding="utf-8") as file:
+                data = json.load(file)
+        except FileNotFoundError as exc:
+            raise FileNotFoundError(f"Synonyms file not found: {self.synonyms_path}") from exc
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Synonyms file is not valid JSON: {self.synonyms_path}") from exc
         self.flat = self._flatten(data)
 
     @staticmethod
