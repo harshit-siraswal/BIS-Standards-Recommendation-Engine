@@ -90,6 +90,14 @@ class BISPipeline:
         start = time.perf_counter()
         clean_query = self._prepare_query(query)
         processed = self.query_processor.process(clean_query)
+        if processed.out_of_scope:
+            latency = time.perf_counter() - start
+            return {
+                "query": clean_query,
+                "retrieved_standards": [],
+                "latency_seconds": round(latency, 4),
+                "out_of_scope": True,
+            }
         candidates = self.retriever.retrieve(processed, top_k=max(CANDIDATE_TOP_K, top_k))
         ranked = self._rank(clean_query, candidates, top_k)
         latency = time.perf_counter() - start
@@ -97,6 +105,7 @@ class BISPipeline:
             "query": clean_query,
             "retrieved_standards": [self._code(result.standard) for result in ranked],
             "latency_seconds": round(latency, 4),
+            "out_of_scope": False,
         }
 
     def _rank(

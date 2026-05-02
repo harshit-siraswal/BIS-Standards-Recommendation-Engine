@@ -32,6 +32,7 @@ app = FastAPI(
 class RecommendationRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=MAX_QUERY_CHARS)
     top_k: int = Field(default=5, ge=1, le=5)
+    language: str = Field(default="en", max_length=20)
 
 
 class RecommendationItem(BaseModel):
@@ -41,12 +42,21 @@ class RecommendationItem(BaseModel):
     confidence: float
 
 
+class ExternalStandard(BaseModel):
+    code: str
+    title: str
+    rationale: str
+    source_url: str
+
+
 class RecommendationResponse(BaseModel):
     query: str
     retrieved_standards: list[str]
     latency_seconds: float
     compliance_warnings: list[str]
     recommendations: list[RecommendationItem]
+    out_of_scope: bool = False
+    external_standards: list[ExternalStandard] = Field(default_factory=list)
 
 
 INDEX_HTML = """
@@ -147,6 +157,15 @@ INDEX_HTML = """
       padding: 3px 8px;
       border-radius: 4px;
       cursor: pointer;
+    }
+
+    .language-select {
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      background: var(--gov-navy);
+      color: var(--white);
+      border-radius: 4px;
+      padding: 4px 8px;
+      max-width: 190px;
     }
 
     .brand-nav {
@@ -325,7 +344,7 @@ INDEX_HTML = """
     }
 
     .check {
-      width: 20px;
+      width: 24px;
       height: 20px;
       border-radius: 50%;
       display: grid;
@@ -680,12 +699,25 @@ INDEX_HTML = """
   <header>
     <div class="gov-strip">
       <div class="strip-inner">
-        <div>An official Government of India digital service</div>
+        <div data-i18n="govStrip">An official Government of India digital service</div>
         <div class="strip-links" aria-label="accessibility controls">
-          <span>English</span>
-          <span>Hindi</span>
+          <label for="languageSelect" data-i18n="languageLabel">Language</label>
+          <select id="languageSelect" class="language-select" aria-label="Language">
+            <option value="en">English</option>
+            <option value="hi">हिन्दी</option>
+            <option value="hinglish">Hinglish</option>
+            <option value="bn">বাংলা</option>
+            <option value="ta">தமிழ்</option>
+            <option value="te">తెలుగు</option>
+            <option value="mr">मराठी</option>
+            <option value="gu">ગુજરાતી</option>
+            <option value="kn">ಕನ್ನಡ</option>
+            <option value="ml">മലയാളം</option>
+            <option value="pa">ਪੰਜਾਬੀ</option>
+            <option value="ur">اردو</option>
+          </select>
           <button type="button" id="textSize">A+</button>
-          <button type="button" id="contrast">Contrast</button>
+          <button type="button" id="contrast" data-i18n="contrast">Contrast</button>
         </div>
       </div>
     </div>
@@ -695,14 +727,14 @@ INDEX_HTML = """
           <div class="emblem" aria-hidden="true">BIS</div>
           <div>
             <p class="brand-title">BIS Standards Recommendation Engine</p>
-            <p class="brand-subtitle">Bureau of Indian Standards lookup for manufacturing MSEs</p>
+            <p class="brand-subtitle" data-i18n="brandSubtitle">Bureau of Indian Standards lookup for manufacturing enterprises</p>
           </div>
         </div>
         <div class="nav-links">
-          <a href="#search">Search</a>
-          <a href="#results">Results</a>
-          <a href="/docs">API Docs</a>
-          <a href="/health">Health</a>
+          <a href="#search" data-i18n="navSearch">Search</a>
+          <a href="#results" data-i18n="navResults">Results</a>
+          <a href="/api/status" data-i18n="navStatus">Service Status</a>
+          <a href="/docs" data-i18n="navDocs">Developer API</a>
         </div>
       </div>
     </nav>
@@ -712,19 +744,17 @@ INDEX_HTML = """
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-inner">
         <div>
-          <div class="eyebrow">BIS Digital Service</div>
-          <h1 id="hero-title">Find applicable Indian Standards from a product description.</h1>
-          <p class="hero-copy">
-            Paste a manufacturing use case in plain language. The engine searches the BIS building-materials catalog and returns ranked IS standards with concise catalog-backed rationale.
-          </p>
+          <div class="eyebrow" data-i18n="eyebrow">BIS Digital Service</div>
+          <h1 id="hero-title" data-i18n="heroTitle">Search applicable Indian Standards for your product.</h1>
+          <p class="hero-copy" data-i18n="heroCopy">Enter the product name, material, grade, and intended use. This service searches available BIS catalogue records and provides relevant Indian Standards for guidance.</p>
         </div>
-        <aside class="service-card" aria-label="service readiness">
-          <h2>Submission readiness</h2>
-          <p>Built for the hackathon judging path and a public demo workflow.</p>
+        <aside class="service-card" aria-label="service status">
+          <h2 data-i18n="serviceStatusTitle">Service status</h2>
+          <p data-i18n="serviceStatusCopy">Digital assistance for standards discovery. Final compliance decisions should be verified with official BIS documents.</p>
           <div class="status-list">
-            <div class="status-item"><span class="check">✓</span><span>Root-level inference.py for automated scoring</span></div>
-            <div class="status-item"><span class="check">✓</span><span>Responses constrained to parsed BIS catalog entries</span></div>
-            <div class="status-item"><span class="check">✓</span><span>Fast API path for live demo and integrations</span></div>
+            <div class="status-item"><span class="check">OK</span><span data-i18n="statusOne">BIS catalogue records loaded</span></div>
+            <div class="status-item"><span class="check">OK</span><span data-i18n="statusTwo">Results limited to known standards or verified external guidance</span></div>
+            <div class="status-item"><span class="check">OK</span><span data-i18n="statusThree">Accessible interface with Indian language support</span></div>
           </div>
         </aside>
       </div>
@@ -733,67 +763,303 @@ INDEX_HTML = """
     <section class="workspace" id="search">
       <div>
         <form class="query-panel" id="recommendForm">
-          <label for="query">Describe your product or manufacturing use case</label>
-          <textarea id="query" name="query" maxlength="500">We are a small enterprise manufacturing 33 Grade Ordinary Portland Cement. Which BIS standard covers the chemical and physical requirements for our product?</textarea>
+          <label for="query" data-i18n="queryLabel">Describe the product, material, grade, and intended use</label>
+          <textarea id="query" name="query" maxlength="500"></textarea>
           <div class="query-tools">
             <div class="chips" aria-label="sample queries">
-              <button class="chip" type="button" data-query="coarse and fine aggregates from natural sources for structural concrete">Aggregates</button>
-              <button class="chip" type="button" data-query="precast concrete pipes with and without reinforcement for water mains">Concrete pipes</button>
-              <button class="chip" type="button" data-query="white Portland cement for architectural and decorative purposes">White cement</button>
+              <button class="chip" type="button" data-sample="aggregates">Aggregates</button>
+              <button class="chip" type="button" data-sample="pipes">Concrete pipes</button>
+              <button class="chip" type="button" data-sample="whiteCement">White cement</button>
             </div>
-            <button class="primary" id="submit" type="submit">Recommend standards</button>
+            <button class="primary" id="submit" type="submit" data-i18n="submit">Search standards</button>
           </div>
-          <div class="metrics" aria-label="public evaluation metrics">
-            <div class="metric"><strong>100%</strong><span>Public Hit@3</span></div>
-            <div class="metric"><strong>1.00</strong><span>Public MRR@5</span></div>
-            <div class="metric"><strong>&lt;5s</strong><span>Latency target</span></div>
+          <div class="metrics" aria-label="service information">
+            <div class="metric"><strong>SP 21</strong><span data-i18n="metricOne">Building materials catalogue</span></div>
+            <div class="metric"><strong>Top 5</strong><span data-i18n="metricTwo">Relevant standard guidance</span></div>
+            <div class="metric"><strong>&lt;5s</strong><span data-i18n="metricThree">Typical search target</span></div>
           </div>
         </form>
 
         <section class="results" id="results" aria-live="polite">
           <div class="results-header">
-            <h2>Recommended standards</h2>
-            <span class="latency" id="latency">Ready</span>
+            <h2 data-i18n="resultsTitle">Relevant Indian Standards</h2>
+            <span class="latency" id="latency" data-i18n="ready">Ready</span>
           </div>
-          <div id="resultBody" class="empty-state">
-            Submit a product description to view ranked BIS standards with rationale.
+          <div id="resultBody" class="empty-state" data-i18n="emptyState">
+            Enter product details to view standards guidance.
           </div>
         </section>
       </div>
 
       <aside class="side-stack">
         <section class="panel notice">
-          <h2>No-hallucination guardrail</h2>
-          <p>Recommendations are selected from the indexed BIS SP 21 catalog only. The UI displays titles and rationale from the matched catalog records.</p>
+          <h2 data-i18n="scopeTitle">Catalogue scope</h2>
+          <p data-i18n="scopeCopy">The service uses available BIS catalogue data. If a product is outside the current catalogue, it will show a verification advisory instead of unrelated standards.</p>
           <div id="warnings" class="warnings"></div>
         </section>
         <section class="panel">
-          <h2>MSE compliance workflow</h2>
+          <h2 data-i18n="workflowTitle">How to use this service</h2>
           <ul class="steps">
-            <li><span class="num">1</span><span>Describe the product, material, grade, and intended use.</span></li>
-            <li><span class="num">2</span><span>Review the top 3-5 standards and rationale.</span></li>
-            <li><span class="num">3</span><span>Use the IS code list for certification planning and expert review.</span></li>
+            <li><span class="num">1</span><span data-i18n="stepOne">Enter the product, material, grade, and intended use.</span></li>
+            <li><span class="num">2</span><span data-i18n="stepTwo">Review the relevant IS codes and catalogue rationale.</span></li>
+            <li><span class="num">3</span><span data-i18n="stepThree">Verify requirements on the official BIS portal before certification action.</span></li>
           </ul>
         </section>
         <section class="panel">
-          <h2>API access</h2>
-          <p>POST JSON to <strong>/recommend</strong> with <strong>query</strong> and optional <strong>top_k</strong>. Open <strong>/docs</strong> for the FastAPI schema.</p>
+          <h2 data-i18n="advisoryTitle">Important advisory</h2>
+          <p data-i18n="advisoryCopy">This digital service supports standards discovery. It does not replace official BIS standards, certification rules, testing requirements, or expert assessment.</p>
         </section>
       </aside>
     </section>
   </main>
 
   <footer>
-    <div class="wrap">Proof-of-concept for BIS standards discovery. Always validate final compliance decisions with the official standard and domain experts.</div>
+    <div class="wrap" data-i18n="footer">Digital aid for BIS standards discovery. Validate final compliance decisions with official BIS documents and competent authorities.</div>
   </footer>
 
   <script>
+    const baseText = {
+      govStrip: "An official Government of India digital service",
+      languageLabel: "Language",
+      contrast: "Contrast",
+      brandSubtitle: "Bureau of Indian Standards lookup for manufacturing enterprises",
+      navSearch: "Search",
+      navResults: "Results",
+      navStatus: "Service Status",
+      navDocs: "Developer API",
+      eyebrow: "BIS Digital Service",
+      heroTitle: "Search applicable Indian Standards for your product.",
+      heroCopy: "Enter the product name, material, grade, and intended use. This service searches available BIS catalogue records and provides relevant Indian Standards for guidance.",
+      serviceStatusTitle: "Service status",
+      serviceStatusCopy: "Digital assistance for standards discovery. Final compliance decisions should be verified with official BIS documents.",
+      statusOne: "BIS catalogue records loaded",
+      statusTwo: "Results limited to known standards or verified external guidance",
+      statusThree: "Accessible interface with Indian language support",
+      queryLabel: "Describe the product, material, grade, and intended use",
+      submit: "Search standards",
+      loading: "Searching catalogue...",
+      searching: "Searching",
+      retrieving: "Retrieving relevant BIS standards...",
+      metricOne: "Building materials catalogue",
+      metricTwo: "Relevant standard guidance",
+      metricThree: "Typical search target",
+      resultsTitle: "Relevant Indian Standards",
+      ready: "Ready",
+      emptyState: "Enter product details to view standards guidance.",
+      noResults: "No matching standards were returned.",
+      confidence: "Confidence",
+      outsideCatalog: "Outside current SP 21 catalogue",
+      verifyBis: "Verify on BIS preview",
+      scopeTitle: "Catalogue scope",
+      scopeCopy: "The service uses available BIS catalogue data. If a product is outside the current catalogue, it will show a verification advisory instead of unrelated standards.",
+      workflowTitle: "How to use this service",
+      stepOne: "Enter the product, material, grade, and intended use.",
+      stepTwo: "Review the relevant IS codes and catalogue rationale.",
+      stepThree: "Verify requirements on the official BIS portal before certification action.",
+      advisoryTitle: "Important advisory",
+      advisoryCopy: "This digital service supports standards discovery. It does not replace official BIS standards, certification rules, testing requirements, or expert assessment.",
+      footer: "Digital aid for BIS standards discovery. Validate final compliance decisions with official BIS documents and competent authorities.",
+      sampleDefault: "We manufacture 33 Grade Ordinary Portland Cement for general building construction. Which Indian Standard is applicable?",
+      sampleAggregatesLabel: "Aggregates",
+      sampleAggregates: "coarse and fine aggregates from natural sources for structural concrete",
+      samplePipesLabel: "Concrete pipes",
+      samplePipes: "precast concrete pipes with and without reinforcement for water mains",
+      sampleWhiteCementLabel: "White cement",
+      sampleWhiteCement: "white Portland cement for architectural and decorative purposes"
+    };
+
+    const translations = {
+      en: baseText,
+      hi: {
+        ...baseText,
+        govStrip: "भारत सरकार की आधिकारिक डिजिटल सेवा",
+        languageLabel: "भाषा",
+        contrast: "कॉन्ट्रास्ट",
+        brandSubtitle: "विनिर्माण उद्यमों के लिए भारतीय मानक ब्यूरो मानक खोज",
+        navSearch: "खोजें",
+        navResults: "परिणाम",
+        navStatus: "सेवा स्थिति",
+        navDocs: "डेवलपर API",
+        eyebrow: "BIS डिजिटल सेवा",
+        heroTitle: "अपने उत्पाद के लिए लागू भारतीय मानक खोजें।",
+        heroCopy: "उत्पाद का नाम, सामग्री, ग्रेड और उपयोग दर्ज करें। यह सेवा उपलब्ध BIS कैटलॉग रिकॉर्ड खोजकर संबंधित भारतीय मानक बताती है।",
+        serviceStatusTitle: "सेवा स्थिति",
+        serviceStatusCopy: "मानक खोज के लिए डिजिटल सहायता। अंतिम अनुपालन निर्णय आधिकारिक BIS दस्तावेजों से सत्यापित करें।",
+        statusOne: "BIS कैटलॉग रिकॉर्ड लोड हैं",
+        statusTwo: "परिणाम ज्ञात मानकों या सत्यापित बाहरी मार्गदर्शन तक सीमित हैं",
+        statusThree: "भारतीय भाषा समर्थन के साथ सुलभ इंटरफेस",
+        queryLabel: "उत्पाद, सामग्री, ग्रेड और उपयोग का वर्णन करें",
+        submit: "मानक खोजें",
+        loading: "कैटलॉग खोजा जा रहा है...",
+        searching: "खोज जारी है",
+        retrieving: "संबंधित BIS मानक खोजे जा रहे हैं...",
+        metricOne: "निर्माण सामग्री कैटलॉग",
+        metricTwo: "संबंधित मानक मार्गदर्शन",
+        metricThree: "सामान्य खोज लक्ष्य",
+        resultsTitle: "संबंधित भारतीय मानक",
+        ready: "तैयार",
+        emptyState: "मानक मार्गदर्शन देखने के लिए उत्पाद विवरण दर्ज करें।",
+        noResults: "कोई मिलान करने वाला मानक नहीं मिला।",
+        confidence: "विश्वास स्तर",
+        outsideCatalog: "वर्तमान SP 21 कैटलॉग से बाहर",
+        verifyBis: "BIS पूर्वावलोकन पर सत्यापित करें",
+        scopeTitle: "कैटलॉग सीमा",
+        scopeCopy: "यह सेवा उपलब्ध BIS कैटलॉग डेटा का उपयोग करती है। उत्पाद वर्तमान कैटलॉग से बाहर होने पर असंबंधित मानक दिखाने के बजाय सत्यापन सलाह दी जाएगी।",
+        workflowTitle: "इस सेवा का उपयोग कैसे करें",
+        stepOne: "उत्पाद, सामग्री, ग्रेड और उपयोग दर्ज करें।",
+        stepTwo: "संबंधित IS कोड और कैटलॉग कारण देखें।",
+        stepThree: "प्रमाणीकरण से पहले आधिकारिक BIS पोर्टल पर आवश्यकताएं सत्यापित करें।",
+        advisoryTitle: "महत्वपूर्ण सलाह",
+        advisoryCopy: "यह डिजिटल सेवा मानक खोज में सहायता करती है। यह आधिकारिक BIS मानकों, प्रमाणन नियमों, परीक्षण आवश्यकताओं या विशेषज्ञ आकलन का विकल्प नहीं है।",
+        footer: "BIS मानक खोज के लिए डिजिटल सहायता। अंतिम अनुपालन निर्णय आधिकारिक BIS दस्तावेजों और सक्षम प्राधिकारियों से सत्यापित करें।",
+        sampleDefault: "हम सामान्य भवन निर्माण के लिए 33 ग्रेड ऑर्डिनरी पोर्टलैंड सीमेंट बनाते हैं। कौन सा भारतीय मानक लागू है?",
+        sampleAggregatesLabel: "एग्रीगेट",
+        samplePipesLabel: "कंक्रीट पाइप",
+        sampleWhiteCementLabel: "व्हाइट सीमेंट"
+      },
+      hinglish: {
+        ...baseText,
+        govStrip: "Government of India ki official digital service",
+        languageLabel: "Bhasha",
+        contrast: "Contrast",
+        brandSubtitle: "Manufacturing enterprises ke liye BIS standards lookup",
+        navSearch: "Search",
+        navResults: "Results",
+        navStatus: "Service Status",
+        navDocs: "Developer API",
+        eyebrow: "BIS Digital Seva",
+        heroTitle: "Apne product ke liye applicable Indian Standards search karein.",
+        heroCopy: "Product ka naam, material, grade aur use likhein. Service available BIS catalogue records se relevant Indian Standards guidance deti hai.",
+        serviceStatusTitle: "Service status",
+        serviceStatusCopy: "Standards discovery ke liye digital sahayata. Final compliance decision official BIS documents se verify karein.",
+        statusOne: "BIS catalogue records loaded",
+        statusTwo: "Results known standards ya verified external guidance tak limited hain",
+        statusThree: "Indian language support ke saath accessible interface",
+        queryLabel: "Product, material, grade aur intended use describe karein",
+        submit: "Standards search karein",
+        loading: "Catalogue search ho raha hai...",
+        searching: "Searching",
+        retrieving: "Relevant BIS standards retrieve ho rahe hain...",
+        resultsTitle: "Relevant Indian Standards",
+        emptyState: "Standards guidance dekhne ke liye product details enter karein.",
+        noResults: "Matching standards nahi mile.",
+        confidence: "Confidence",
+        outsideCatalog: "Current SP 21 catalogue ke bahar",
+        verifyBis: "BIS preview par verify karein",
+        scopeTitle: "Catalogue scope",
+        scopeCopy: "Service available BIS catalogue data use karti hai. Product current catalogue ke bahar ho to unrelated standards ki jagah verification advisory dikhegi.",
+        workflowTitle: "Is service ka istemal kaise karein",
+        stepOne: "Product, material, grade aur intended use enter karein.",
+        stepTwo: "Relevant IS codes aur catalogue rationale review karein.",
+        stepThree: "Certification action se pehle official BIS portal par requirements verify karein.",
+        advisoryTitle: "Important advisory",
+        advisoryCopy: "Ye digital service standards discovery mein help karti hai. Ye official BIS standards, certification rules, testing requirements ya expert assessment ka replacement nahi hai.",
+        footer: "BIS standards discovery ke liye digital aid. Final compliance decisions official BIS documents aur competent authorities se verify karein.",
+        sampleDefault: "Hum general building construction ke liye 33 Grade Ordinary Portland Cement manufacture karte hain. Kaunsa Indian Standard applicable hai?",
+        sampleAggregatesLabel: "Aggregates",
+        samplePipesLabel: "Concrete pipes",
+        sampleWhiteCementLabel: "White cement"
+      },
+      bn: {
+        ...baseText,
+        govStrip: "ভারত সরকারের সরকারি ডিজিটাল পরিষেবা",
+        languageLabel: "ভাষা",
+        heroTitle: "আপনার পণ্যের জন্য প্রযোজ্য ভারতীয় মান অনুসন্ধান করুন।",
+        queryLabel: "পণ্য, উপাদান, গ্রেড এবং ব্যবহারের বিবরণ দিন",
+        submit: "মান অনুসন্ধান করুন",
+        resultsTitle: "সম্পর্কিত ভারতীয় মান",
+        emptyState: "মান নির্দেশিকা দেখতে পণ্যের বিবরণ লিখুন।"
+      },
+      ta: {
+        ...baseText,
+        govStrip: "இந்திய அரசின் அதிகாரப்பூர்வ டிஜிட்டல் சேவை",
+        languageLabel: "மொழி",
+        heroTitle: "உங்கள் தயாரிப்பிற்கு பொருந்தும் இந்திய தரங்களைத் தேடுங்கள்.",
+        queryLabel: "தயாரிப்பு, பொருள், தரம் மற்றும் பயன்பாட்டை விவரிக்கவும்",
+        submit: "தரங்களைத் தேடுங்கள்",
+        resultsTitle: "பொருத்தமான இந்திய தரங்கள்",
+        emptyState: "தர வழிகாட்டுதலை காண தயாரிப்பு விவரங்களை உள்ளிடவும்."
+      },
+      te: {
+        ...baseText,
+        govStrip: "భారత ప్రభుత్వ అధికారిక డిజిటల్ సేవ",
+        languageLabel: "భాష",
+        heroTitle: "మీ ఉత్పత్తికి వర్తించే భారతీయ ప్రమాణాలను శోధించండి.",
+        queryLabel: "ఉత్పత్తి, పదార్థం, గ్రేడ్ మరియు వినియోగాన్ని వివరించండి",
+        submit: "ప్రమాణాలను శోధించండి",
+        resultsTitle: "సంబంధిత భారతీయ ప్రమాణాలు",
+        emptyState: "ప్రమాణ మార్గదర్శకాన్ని చూడటానికి ఉత్పత్తి వివరాలు నమోదు చేయండి."
+      },
+      mr: {
+        ...baseText,
+        govStrip: "भारत सरकारची अधिकृत डिजिटल सेवा",
+        languageLabel: "भाषा",
+        heroTitle: "आपल्या उत्पादनासाठी लागू भारतीय मानके शोधा.",
+        queryLabel: "उत्पादन, साहित्य, ग्रेड आणि वापराचे वर्णन करा",
+        submit: "मानके शोधा",
+        resultsTitle: "संबंधित भारतीय मानके",
+        emptyState: "मानक मार्गदर्शन पाहण्यासाठी उत्पादन तपशील द्या."
+      },
+      gu: {
+        ...baseText,
+        govStrip: "ભારત સરકારની સત્તાવાર ડિજિટલ સેવા",
+        languageLabel: "ભાષા",
+        heroTitle: "તમારા ઉત્પાદન માટે લાગુ ભારતીય ધોરણો શોધો.",
+        queryLabel: "ઉત્પાદન, સામગ્રી, ગ્રેડ અને ઉપયોગનું વર્ણન કરો",
+        submit: "ધોરણો શોધો",
+        resultsTitle: "સંબંધિત ભારતીય ધોરણો",
+        emptyState: "ધોરણ માર્ગદર્શન જોવા ઉત્પાદન વિગતો દાખલ કરો."
+      },
+      kn: {
+        ...baseText,
+        govStrip: "ಭಾರತ ಸರ್ಕಾರದ ಅಧಿಕೃತ ಡಿಜಿಟಲ್ ಸೇವೆ",
+        languageLabel: "ಭಾಷೆ",
+        heroTitle: "ನಿಮ್ಮ ಉತ್ಪನ್ನಕ್ಕೆ ಅನ್ವಯಿಸುವ ಭಾರತೀಯ ಮಾನದಂಡಗಳನ್ನು ಹುಡುಕಿ.",
+        queryLabel: "ಉತ್ಪನ್ನ, ವಸ್ತು, ಗ್ರೇಡ್ ಮತ್ತು ಬಳಕೆಯನ್ನು ವಿವರಿಸಿ",
+        submit: "ಮಾನದಂಡಗಳನ್ನು ಹುಡುಕಿ",
+        resultsTitle: "ಸಂಬಂಧಿತ ಭಾರತೀಯ ಮಾನದಂಡಗಳು",
+        emptyState: "ಮಾನದಂಡ ಮಾರ್ಗದರ್ಶನಕ್ಕಾಗಿ ಉತ್ಪನ್ನ ವಿವರಗಳನ್ನು ನಮೂದಿಸಿ."
+      },
+      ml: {
+        ...baseText,
+        govStrip: "ഇന്ത്യ സർക്കാരിന്റെ ഔദ്യോഗിക ഡിജിറ്റൽ സേവനം",
+        languageLabel: "ഭാഷ",
+        heroTitle: "നിങ്ങളുടെ ഉൽപ്പന്നത്തിന് ബാധകമായ ഇന്ത്യൻ സ്റ്റാൻഡേർഡുകൾ തിരയുക.",
+        queryLabel: "ഉൽപ്പന്നം, വസ്തു, ഗ്രേഡ്, ഉപയോഗം എന്നിവ വിവരിക്കുക",
+        submit: "സ്റ്റാൻഡേർഡുകൾ തിരയുക",
+        resultsTitle: "ബന്ധപ്പെട്ട ഇന്ത്യൻ സ്റ്റാൻഡേർഡുകൾ",
+        emptyState: "സ്റ്റാൻഡേർഡ് മാർഗ്ഗനിർദ്ദേശം കാണാൻ ഉൽപ്പന്ന വിശദാംശങ്ങൾ നൽകുക."
+      },
+      pa: {
+        ...baseText,
+        govStrip: "ਭਾਰਤ ਸਰਕਾਰ ਦੀ ਅਧਿਕਾਰਿਕ ਡਿਜ਼ਿਟਲ ਸੇਵਾ",
+        languageLabel: "ਭਾਸ਼ਾ",
+        heroTitle: "ਆਪਣੇ ਉਤਪਾਦ ਲਈ ਲਾਗੂ ਭਾਰਤੀ ਮਿਆਰ ਖੋਜੋ।",
+        queryLabel: "ਉਤਪਾਦ, ਸਮੱਗਰੀ, ਗ੍ਰੇਡ ਅਤੇ ਵਰਤੋਂ ਦਾ ਵੇਰਵਾ ਦਿਓ",
+        submit: "ਮਿਆਰ ਖੋਜੋ",
+        resultsTitle: "ਸੰਬੰਧਿਤ ਭਾਰਤੀ ਮਿਆਰ",
+        emptyState: "ਮਿਆਰ ਮਾਰਗਦਰਸ਼ਨ ਵੇਖਣ ਲਈ ਉਤਪਾਦ ਵੇਰਵੇ ਦਿਓ।"
+      },
+      ur: {
+        ...baseText,
+        govStrip: "حکومت ہند کی سرکاری ڈیجیٹل خدمت",
+        languageLabel: "زبان",
+        heroTitle: "اپنی مصنوعات کے لیے قابل اطلاق بھارتی معیارات تلاش کریں۔",
+        queryLabel: "مصنوعات، مواد، گریڈ اور استعمال کی تفصیل درج کریں",
+        submit: "معیارات تلاش کریں",
+        resultsTitle: "متعلقہ بھارتی معیارات",
+        emptyState: "معیاری رہنمائی دیکھنے کے لیے مصنوعات کی تفصیل درج کریں۔"
+      }
+    };
+
     const form = document.querySelector("#recommendForm");
     const queryInput = document.querySelector("#query");
     const submitButton = document.querySelector("#submit");
     const resultBody = document.querySelector("#resultBody");
     const latency = document.querySelector("#latency");
     const warnings = document.querySelector("#warnings");
+    const languageSelect = document.querySelector("#languageSelect");
+    let currentLang = "en";
 
     function escapeHtml(value) {
       return String(value)
@@ -804,9 +1070,38 @@ INDEX_HTML = """
         .replaceAll("'", "&#039;");
     }
 
+    function t(key) {
+      return (translations[currentLang] && translations[currentLang][key]) || baseText[key] || key;
+    }
+
+    function applyLanguage(lang) {
+      currentLang = translations[lang] ? lang : "en";
+      document.documentElement.lang = currentLang === "hinglish" ? "en-IN" : currentLang;
+      document.documentElement.dir = currentLang === "ur" ? "rtl" : "ltr";
+
+      document.querySelectorAll("[data-i18n]").forEach((node) => {
+        node.textContent = t(node.dataset.i18n);
+      });
+
+      document.querySelectorAll("[data-sample]").forEach((button) => {
+        const key = button.dataset.sample;
+        button.textContent = t(`sample${key[0].toUpperCase()}${key.slice(1)}Label`);
+        button.dataset.query = t(`sample${key[0].toUpperCase()}${key.slice(1)}`);
+      });
+
+      const knownSamples = Object.values(translations).map((locale) => locale.sampleDefault);
+      if (!queryInput.value || knownSamples.includes(queryInput.value)) {
+        queryInput.value = t("sampleDefault");
+      }
+      queryInput.placeholder = t("queryLabel");
+      if (latency.textContent === baseText.ready || latency.textContent === translations.hi.ready) {
+        latency.textContent = t("ready");
+      }
+    }
+
     function setLoading(isLoading) {
       submitButton.disabled = isLoading;
-      submitButton.textContent = isLoading ? "Searching catalog..." : "Recommend standards";
+      submitButton.textContent = isLoading ? t("loading") : t("submit");
     }
 
     function renderWarnings(items) {
@@ -819,9 +1114,27 @@ INDEX_HTML = """
       latency.textContent = `${Number(data.latency_seconds || 0).toFixed(3)}s`;
       renderWarnings(data.compliance_warnings);
       const recommendations = data.recommendations || [];
+      const external = data.external_standards || [];
+      if (!recommendations.length && external.length) {
+        resultBody.className = "result-list";
+        resultBody.innerHTML = external.map((item, index) => `
+          <article class="result">
+            <div class="rank">${index + 1}</div>
+            <div>
+              <h3><span class="code">${escapeHtml(item.code)}</span>${escapeHtml(item.title)}</h3>
+              <p class="rationale">${escapeHtml(item.rationale)}</p>
+              <div class="confidence">
+                <span>${escapeHtml(t("outsideCatalog"))}</span>
+                <a href="${escapeHtml(item.source_url)}" target="_blank" rel="noopener">${escapeHtml(t("verifyBis"))}</a>
+              </div>
+            </div>
+          </article>
+        `).join("");
+        return;
+      }
       if (!recommendations.length) {
         resultBody.className = "empty-state";
-        resultBody.textContent = "No matching standards were returned.";
+        resultBody.textContent = t("noResults");
         return;
       }
 
@@ -833,9 +1146,9 @@ INDEX_HTML = """
             <div class="rank">${index + 1}</div>
             <div>
               <h3><span class="code">${escapeHtml(item.code)}</span>${escapeHtml(item.title || "BIS standard")}</h3>
-              <p class="rationale">${escapeHtml(item.rationale || "Matched against the BIS catalog.")}</p>
+              <p class="rationale">${escapeHtml(item.rationale || "Matched against the BIS catalogue.")}</p>
               <div class="confidence">
-                <span>Confidence</span>
+                <span>${escapeHtml(t("confidence"))}</span>
                 <span class="bar"><span style="width:${confidence}%"></span></span>
                 <span>${confidence}%</span>
               </div>
@@ -847,14 +1160,14 @@ INDEX_HTML = """
 
     async function recommend(query) {
       setLoading(true);
-      latency.textContent = "Searching";
+      latency.textContent = t("searching");
       resultBody.className = "empty-state";
-      resultBody.textContent = "Retrieving relevant BIS standards...";
+      resultBody.textContent = t("retrieving");
       try {
         const response = await fetch("/recommend", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, top_k: 5 }),
+          body: JSON.stringify({ query, top_k: 5, language: currentLang }),
         });
         const data = await response.json();
         if (!response.ok) {
@@ -876,11 +1189,15 @@ INDEX_HTML = """
       if (query) recommend(query);
     });
 
-    document.querySelectorAll("[data-query]").forEach((button) => {
+    document.querySelectorAll("[data-sample]").forEach((button) => {
       button.addEventListener("click", () => {
         queryInput.value = button.dataset.query;
         queryInput.focus();
       });
+    });
+
+    languageSelect.addEventListener("change", () => {
+      applyLanguage(languageSelect.value);
     });
 
     document.querySelector("#contrast").addEventListener("click", () => {
@@ -890,6 +1207,8 @@ INDEX_HTML = """
     document.querySelector("#textSize").addEventListener("click", () => {
       document.body.classList.toggle("large-text");
     });
+
+    applyLanguage("en");
   </script>
 </body>
 </html>
@@ -930,18 +1249,25 @@ def _first_sentence(text: str, max_chars: int = 210) -> str:
     return sentence
 
 
-def _recommendation_items(codes: list[str]) -> list[dict[str, Any]]:
+RATIONALE_PREFIX = {
+    "hi": "BIS कैटलॉग प्रविष्टि के आधार पर मिलान किया गया",
+    "hinglish": "BIS catalogue entry ke basis par match kiya gaya",
+}
+
+
+def _recommendation_items(codes: list[str], language: str = "en") -> list[dict[str, Any]]:
     lookup = _standard_lookup()
     items: list[dict[str, Any]] = []
     total = max(len(codes), 1)
+    prefix = RATIONALE_PREFIX.get(language, "Matched to the BIS catalogue entry for")
     for index, code in enumerate(codes):
         standard = lookup.get(normalize_standard_code(code), {})
         title = str(standard.get("title") or "BIS catalog standard").strip()
         scope = _first_sentence(str(standard.get("scope") or standard.get("body") or ""))
         rationale = (
-            f"Matched to the BIS catalog entry for {title}. {scope}"
+            f"{prefix} {title}. {scope}"
             if scope
-            else f"Matched to the BIS catalog entry for {title}."
+            else f"{prefix} {title}."
         )
         items.append(
             {
@@ -952,6 +1278,53 @@ def _recommendation_items(codes: list[str]) -> list[dict[str, Any]]:
             }
         )
     return items
+
+
+def _external_standards(query: str, language: str = "en") -> list[dict[str, str]]:
+    normalized = " ".join(str(query or "").lower().split())
+    if "pencil" not in normalized:
+        return []
+    if language == "hi":
+        first_rationale = (
+            "यह BIS मानक ड्राइंग पेंसिल, कारपेंटर पेंसिल, स्टेनोग्राफर/रिपोर्टर पेंसिल "
+            "और सामान्य लेखन पेंसिल की आवश्यकताओं को कवर करता है।"
+        )
+        second_rationale = (
+            "यह BIS मानक पेंसिल स्लिप यानी pencil lead बनाने में उपयोग होने वाले graphite "
+            "grades की आवश्यकताओं को कवर करता है।"
+        )
+    elif language == "hinglish":
+        first_rationale = (
+            "Ye BIS standard drawing pencils, carpenter's pencils, stenographer/reporter pencils "
+            "aur general writing pencils ki requirements cover karta hai."
+        )
+        second_rationale = (
+            "Ye BIS standard pencil slips, yaani pencil lead, banane ke liye graphite grades ki "
+            "requirements cover karta hai."
+        )
+    else:
+        first_rationale = (
+            "This BIS standard covers requirements for drawing pencils, carpenter's pencils, "
+            "stenographer's and reporter's pencils, and pencils for general writing."
+        )
+        second_rationale = (
+            "This BIS standard covers graphite grades intended for manufacturing slips for pencils, "
+            "also commonly referred to as pencil lead."
+        )
+    return [
+        {
+            "code": "IS 1375:2021",
+            "title": "Black Lead Pencils - Specification",
+            "rationale": first_rationale,
+            "source_url": "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=1375_2021",
+        },
+        {
+            "code": "IS 2079:2022",
+            "title": "Graphite for Pencil Slips - Specification",
+            "rationale": second_rationale,
+            "source_url": "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=2079_2022",
+        },
+    ]
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -1013,7 +1386,8 @@ def recommend(payload: RecommendationRequest) -> dict[str, Any]:
     return {
         **result,
         "compliance_warnings": processed.compliance_warnings,
-        "recommendations": _recommendation_items(result["retrieved_standards"]),
+        "recommendations": _recommendation_items(result["retrieved_standards"], payload.language),
+        "external_standards": _external_standards(query, payload.language),
     }
 
 

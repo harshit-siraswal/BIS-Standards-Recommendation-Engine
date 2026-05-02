@@ -57,3 +57,13 @@ def test_pipeline_handles_empty_query_with_five_defaults():
 
     assert len(out["retrieved_standards"]) == 5
     assert normalize_standard_code(out["retrieved_standards"][0]) == "is269:1989"
+
+
+def test_pipeline_does_not_map_graphite_pencils_to_lead_pipes():
+    out = BISPipeline().run_query("we are making graphite lead pencils")
+    retrieved = [normalize_standard_code(code) for code in out["retrieved_standards"]]
+
+    assert out["out_of_scope"] is True
+    assert retrieved == []
+    assert "is404(part1):1993" not in retrieved
+    assert "is782:1978" not in retrieved

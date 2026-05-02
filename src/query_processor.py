@@ -23,6 +23,13 @@ IS_CODE_QUERY_PATTERN = re.compile(
     re.IGNORECASE,
 )
 STOP_WORDS = frozenset({"the", "a", "an", "of", "to", "and", "or", "in", "on", "for", "be"})
+OUT_OF_SCOPE_PRODUCT_RULES = (
+    (
+        ("pencil", "pencils"),
+        "Graphite or black lead pencils are outside the bundled BIS SP 21 building-materials catalog. "
+        "Verify pencil-specific BIS standards separately, such as IS 1375:2021 and IS 2079:2022.",
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -33,6 +40,7 @@ class ProcessedQuery:
     explicit_codes: list[str]
     tokens: list[str]
     compliance_warnings: list[str] = field(default_factory=list)
+    out_of_scope: bool = False
 
 
 def normalize_query_text(query: str) -> str:
@@ -213,7 +221,18 @@ class QueryProcessor:
         for term_key, warning in self.compliance_flags.items():
             if f" {term_key} " in searchable and warning not in warnings:
                 warnings.append(warning)
+        for terms, warning in OUT_OF_SCOPE_PRODUCT_RULES:
+            if any(f" {normalize_match_text(term)} " in searchable for term in terms):
+                warnings.append(warning)
         return warnings
+
+    @staticmethod
+    def _is_out_of_scope(normalized: str) -> bool:
+        searchable = f" {normalize_match_text(normalized)} "
+        return any(
+            any(f" {normalize_match_text(term)} " in searchable for term in terms)
+            for terms, _warning in OUT_OF_SCOPE_PRODUCT_RULES
+        )
 
     def process(self, query: str) -> ProcessedQuery:
         normalized = normalize_query_text(query)
@@ -227,6 +246,7 @@ class QueryProcessor:
             explicit_codes=explicit_codes,
             tokens=self.tokenize(expanded),
             compliance_warnings=self._compliance_warnings(normalized, expanded),
+            out_of_scope=self._is_out_of_scope(normalized),
         )
 
 
