@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from functools import lru_cache
 from html import escape
 from pathlib import Path
@@ -42,6 +43,7 @@ class RecommendationItem(BaseModel):
     title: str
     rationale: str
     confidence: float
+    source_url: str
 
 
 class ExternalStandard(BaseModel):
@@ -1997,8 +1999,14 @@ INDEX_HTML = """
       return (translations[currentLang] && translations[currentLang][key]) || baseText[key] || key;
     }
 
-    function bisSearchUrl(code) {
-      return `https://standardsbis.bsbedge.com/BIS_SearchStandard.aspx?Standard_Number=${encodeURIComponent(code)}&id=0`;
+    function bisPreviewUrl(code) {
+      const match = String(code || "").match(/IS\\s*(\\d{2,5})(?:\\s*\\(\\s*Part\\s*(\\d+)(?:\\s*\\/\\s*Sec\\s*(\\d+))?\\s*\\))?\\s*[:\\-]\\s*(\\d{4})/i);
+      if (!match) return "https://standardsbis.bsbedge.com/";
+      const parts = [match[1]];
+      if (match[2]) parts.push(match[2]);
+      if (match[3]) parts.push(match[3]);
+      parts.push(match[4]);
+      return `https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=${parts.join("_")}`;
     }
 
     function applyLanguage(lang) {
@@ -2087,7 +2095,7 @@ INDEX_HTML = """
               <h3><span class="code">${escapeHtml(item.code)}</span>${escapeHtml(item.title || "BIS standard")}</h3>
               <p class="rationale">${escapeHtml(item.rationale || "Matched against the BIS catalogue.")}</p>
               <div class="result-meta">
-                <a href="${escapeHtml(bisSearchUrl(item.code))}" target="_blank" rel="noopener">${escapeHtml(t("verifyBis"))}</a>
+                <a href="${escapeHtml(item.source_url || bisPreviewUrl(item.code))}" target="_blank" rel="noopener">${escapeHtml(item.source_url || bisPreviewUrl(item.code))}</a>
               </div>
             </div>
           </article>
@@ -2192,6 +2200,28 @@ RATIONALE_PREFIX = {
     "hinglish": "BIS catalogue entry ke basis par match kiya gaya",
 }
 
+IS_CODE_PREVIEW_PATTERN = re.compile(
+    r"\bIS\s*(\d{2,5})"
+    r"(?:\s*\(\s*Part\s*(\d+)(?:\s*/\s*Sec\s*(\d+))?\s*\))?"
+    r"\s*[:\-]\s*(\d{4})",
+    re.IGNORECASE,
+)
+BIS_PREVIEW_BASE_URL = "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id="
+
+
+def _bis_preview_url_for_code(code: str) -> str:
+    match = IS_CODE_PREVIEW_PATTERN.search(str(code or ""))
+    if not match:
+        return "https://standardsbis.bsbedge.com/"
+    number, part, section, year = match.groups()
+    preview_parts = [number]
+    if part:
+        preview_parts.append(part)
+    if section:
+        preview_parts.append(section)
+    preview_parts.append(year)
+    return f"{BIS_PREVIEW_BASE_URL}{'_'.join(preview_parts)}"
+
 
 def _recommendation_items(codes: list[str], language: str = "en") -> list[dict[str, Any]]:
     lookup = _standard_lookup()
@@ -2213,6 +2243,7 @@ def _recommendation_items(codes: list[str], language: str = "en") -> list[dict[s
                 "title": title.title() if title.isupper() else title,
                 "rationale": rationale,
                 "confidence": round(max(0.52, 0.94 - (index * (0.36 / total))), 2),
+                "source_url": _bis_preview_url_for_code(code),
             }
         )
     return items
