@@ -18,6 +18,12 @@ pip install -r requirements.txt
 python run.py --input public_test_set.json --output results.json
 ```
 
+For hackathon judging, use the required inference entrypoint:
+
+```bash
+python inference.py --input public_test_set.json --output team_results.json
+```
+
 For a fresh clone without generated retrieval artifacts:
 
 ```bash
