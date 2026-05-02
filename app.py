@@ -262,6 +262,33 @@ INDEX_HTML = """
         var(--white);
     }
 
+    .brand-logos {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      flex: 0 0 auto;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .official-logo {
+      display: block;
+      object-fit: contain;
+      flex: 0 0 auto;
+    }
+
+    .india-emblem-logo {
+      width: 28px;
+      height: 42px;
+    }
+
+    .bis-logo-img {
+      width: 58px;
+      height: 42px;
+    }
+
     .brand-title {
       margin: 0;
       font-size: clamp(1rem, 2vw, 1.32rem);
@@ -1055,6 +1082,31 @@ INDEX_HTML = """
       border: 2px solid rgba(255, 255, 255, 0.75);
     }
 
+    .footer-logos {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      padding: 7px 10px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.96);
+    }
+
+    .footer-logos img {
+      display: block;
+      object-fit: contain;
+    }
+
+    .footer-logos .india-emblem-logo {
+      width: 26px;
+      height: 38px;
+    }
+
+    .footer-logos .bis-logo-img {
+      width: 52px;
+      height: 38px;
+    }
+
     .footer-brand strong,
     .footer-links h2 {
       color: var(--white);
@@ -1114,6 +1166,123 @@ INDEX_HTML = """
       --gov-blue: #ffd45a;
       --gov-blue-2: #2e2e2e;
       --shadow: none;
+    }
+
+    body.contrast .brand-nav,
+    body.contrast .query-panel,
+    body.contrast .results,
+    body.contrast .panel,
+    body.contrast .service-card,
+    body.contrast .saarthi-panel {
+      background: #101010;
+      color: #ffffff;
+      border-color: #8a8a8a;
+      box-shadow: none;
+    }
+
+    body.contrast .brand-logos,
+    body.contrast .footer-logos {
+      background: #ffffff;
+      border-color: #ffd45a;
+    }
+
+    body.contrast .hero {
+      background:
+        linear-gradient(90deg, rgba(255, 212, 90, 0.16), transparent 28%),
+        linear-gradient(270deg, rgba(97, 255, 103, 0.12), transparent 28%),
+        #050505;
+      border-color: #8a8a8a;
+    }
+
+    body.contrast .hero::before {
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.09) 1px, transparent 1px);
+      mask-image: none;
+    }
+
+    body.contrast h1,
+    body.contrast .hero-copy,
+    body.contrast .brand-subtitle,
+    body.contrast .service-card p,
+    body.contrast .panel p,
+    body.contrast .steps li,
+    body.contrast .empty-state,
+    body.contrast .rationale,
+    body.contrast .result-meta,
+    body.contrast .guidance-card p,
+    body.contrast .guidance-card ul,
+    body.contrast .assistant-empty,
+    body.contrast .chat-note {
+      color: #ffffff;
+    }
+
+    body.contrast .eyebrow,
+    body.contrast .brand-title,
+    body.contrast .service-card h2,
+    body.contrast .panel h2,
+    body.contrast .results h2,
+    body.contrast label,
+    body.contrast .guidance-card h3,
+    body.contrast .result .code,
+    body.contrast .nav-links a {
+      color: #ffd45a;
+    }
+
+    body.contrast textarea,
+    body.contrast .chat-form input,
+    body.contrast .guidance-card,
+    body.contrast .chat-log,
+    body.contrast .chat-message,
+    body.contrast .metric {
+      background: #000000;
+      color: #ffffff;
+      border-color: #8a8a8a;
+    }
+
+    body.contrast textarea::placeholder,
+    body.contrast input::placeholder {
+      color: #d6d6d6;
+    }
+
+    body.contrast .primary,
+    body.contrast .saarthi-toggle,
+    body.contrast .chat-form button {
+      background: #ffd45a;
+      color: #000000;
+      box-shadow: none;
+    }
+
+    body.contrast .chip,
+    body.contrast .term-pill,
+    body.contrast .num,
+    body.contrast .latency,
+    body.contrast .saarthi-close,
+    body.contrast .guidance-source,
+    body.contrast .check {
+      background: #1f1f1f;
+      border-color: #8a8a8a;
+      color: #ffd45a;
+    }
+
+    body.contrast .chat-message.user,
+    body.contrast .rank {
+      background: #ffd45a;
+      border-color: #ffd45a;
+      color: #000000;
+    }
+
+    body.contrast .warning,
+    body.contrast .chat-final-note {
+      background: #1f1f1f;
+      border-color: #ffd45a;
+      color: #ffd45a;
+    }
+
+    body.contrast footer,
+    body.contrast .footer-note {
+      background: #000000;
+      border-color: #8a8a8a;
     }
 
     body.large-text {
@@ -1203,7 +1372,10 @@ INDEX_HTML = """
     <nav class="brand-nav" aria-label="primary">
       <div class="nav-inner">
         <div class="brand">
-          <div class="emblem" aria-hidden="true">BIS</div>
+          <div class="brand-logos" aria-label="Official BIS and Government of India identifiers">
+            <img class="official-logo india-emblem-logo" src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="Emblem of India" loading="lazy" />
+            <img class="official-logo bis-logo-img" src="https://www.bis.gov.in/wp-content/uploads/2024/12/BIS-LOGO.png" alt="Bureau of Indian Standards logo" loading="lazy" />
+          </div>
           <div>
             <p class="brand-title" data-i18n="footerTitle">Business Compliance Assistant</p>
             <p class="brand-subtitle" data-i18n="brandSubtitle">Bureau of Indian Standards lookup for manufacturing enterprises</p>
@@ -1224,8 +1396,8 @@ INDEX_HTML = """
       <div class="hero-inner">
         <div>
           <div class="eyebrow" data-i18n="eyebrow">BIS Digital Service</div>
-          <h1 id="hero-title" data-i18n="heroTitle">Business Compliance Assistant for BIS standards.</h1>
-          <p class="hero-copy" data-i18n="heroCopy">Enter a messy product description. The assistant retrieves relevant Indian Standards, explains why they match, and lists practical next steps to verify with BIS.</p>
+          <h1 id="hero-title" data-i18n="heroTitle">Search applicable Indian Standards for your product.</h1>
+          <p class="hero-copy" data-i18n="heroCopy">Enter the product name, material, grade, and intended use. This service searches available BIS catalogue records and provides relevant Indian Standards for guidance.</p>
         </div>
         <aside class="service-card" aria-label="service status">
           <h2 data-i18n="serviceStatusTitle">Service status</h2>
@@ -1330,7 +1502,10 @@ INDEX_HTML = """
   <footer>
     <div class="wrap footer-inner">
       <div class="footer-brand">
-        <div class="footer-mark" aria-hidden="true">BIS</div>
+        <div class="footer-logos" aria-label="Official BIS and Government of India identifiers">
+          <img class="official-logo india-emblem-logo" src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="Emblem of India" loading="lazy" />
+          <img class="official-logo bis-logo-img" src="https://www.bis.gov.in/wp-content/uploads/2024/12/BIS-LOGO.png" alt="Bureau of Indian Standards logo" loading="lazy" />
+        </div>
         <strong data-i18n="footerTitle">Business Compliance Assistant</strong>
         <p data-i18n="footer">Digital aid for BIS standards discovery. Validate final compliance decisions with official BIS documents and competent authorities.</p>
       </div>
@@ -1384,8 +1559,8 @@ INDEX_HTML = """
       navStatus: "Service Status",
       navDocs: "Developer API",
       eyebrow: "BIS Digital Service",
-      heroTitle: "Business Compliance Assistant for BIS standards.",
-      heroCopy: "Enter a messy product description. The assistant retrieves relevant Indian Standards, explains why they match, and lists practical next steps to verify with BIS.",
+      heroTitle: "Search applicable Indian Standards for your product.",
+      heroCopy: "Enter the product name, material, grade, and intended use. This service searches available BIS catalogue records and provides relevant Indian Standards for guidance.",
       serviceStatusTitle: "Service status",
       serviceStatusCopy: "Digital assistance for standards discovery. Final compliance decisions should be verified with official BIS documents.",
       statusOk: "OK",
@@ -1460,8 +1635,8 @@ INDEX_HTML = """
         navStatus: "सेवा स्थिति",
         navDocs: "डेवलपर API",
         eyebrow: "BIS डिजिटल सेवा",
-        heroTitle: "BIS मानकों के लिए व्यावसायिक अनुपालन सहायक।",
-        heroCopy: "अव्यवस्थित उत्पाद विवरण दर्ज करें। सहायक संबंधित भारतीय मानक खोजता है, मिलान का कारण बताता है, और BIS से सत्यापित करने के लिए व्यावहारिक अगले कदम देता है।",
+        heroTitle: "अपने उत्पाद के लिए लागू भारतीय मानक खोजें।",
+        heroCopy: "उत्पाद का नाम, सामग्री, ग्रेड और उपयोग दर्ज करें। यह सेवा उपलब्ध BIS कैटलॉग रिकॉर्ड खोजकर संबंधित भारतीय मानक बताती है।",
         serviceStatusTitle: "सेवा स्थिति",
         serviceStatusCopy: "मानक खोज के लिए डिजिटल सहायता। अंतिम अनुपालन निर्णय आधिकारिक BIS दस्तावेजों से सत्यापित करें।",
         statusOne: "BIS कैटलॉग रिकॉर्ड लोड हैं",
@@ -1506,8 +1681,8 @@ INDEX_HTML = """
         navStatus: "Service Status",
         navDocs: "Developer API",
         eyebrow: "BIS Digital Seva",
-        heroTitle: "BIS standards ke liye Business Compliance Assistant.",
-        heroCopy: "Messy product description enter karein. Assistant relevant Indian Standards retrieve karta hai, match ka reason batata hai, aur BIS se verify karne ke practical next steps deta hai.",
+        heroTitle: "Apne product ke liye applicable Indian Standards search karein.",
+        heroCopy: "Product ka naam, material, grade aur use likhein. Service available BIS catalogue records se relevant Indian Standards guidance deti hai.",
         serviceStatusTitle: "Service status",
         serviceStatusCopy: "Standards discovery ke liye digital sahayata. Final compliance decision official BIS documents se verify karein.",
         statusOne: "BIS catalogue records loaded",

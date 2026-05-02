@@ -60,6 +60,14 @@ def test_udyam_saarthi_floating_widget_is_rendered():
     assert "saarthi-saree" in INDEX_HTML
 
 
+def test_official_logos_are_rendered():
+    assert "BIS-LOGO.png" in INDEX_HTML
+    assert "Emblem_of_India.svg" in INDEX_HTML
+    assert 'alt="Bureau of Indian Standards logo"' in INDEX_HTML
+    assert 'alt="Emblem of India"' in INDEX_HTML
+    assert "body.contrast .brand-logos" in INDEX_HTML
+
+
 def test_multilingual_pencil_queries_return_verified_external_standards():
     queries = [
         ("en", "we are making graphite lead pencils"),
