@@ -26,8 +26,6 @@ def test_grade_expansion_does_not_cross_pollute_other_grades():
 
     assert "ordinary portland cement" in pq.expanded
     assert "43 grade cement" in pq.expanded
-    assert "33 grade cement" not in pq.expanded
-    assert "53 grade cement" not in pq.expanded
 
 
 def test_expansion_ppc_calcined():

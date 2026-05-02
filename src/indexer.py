@@ -135,6 +135,7 @@ def build_sparse_index(standards: list[dict[str, Any]]) -> tuple[Any, list[list[
 
 
 def build_code_lookup(standards: list[dict[str, Any]]) -> dict[str, int]:
+    """Map normalized IS codes to their position in the indexed catalog."""
     codes: dict[str, int] = {}
     for index, standard in enumerate(standards):
         raw_code = standard.get("is_code_normalized") or standard.get("is_code", "")

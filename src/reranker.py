@@ -112,7 +112,10 @@ class Reranker:
         body = cls._standard_value(standard, "body")
         keywords = cls._standard_value(standard, "keywords", default=[])
 
-        keyword_text = " ".join(str(keyword) for keyword in keywords[:8]) if isinstance(keywords, Sequence) else ""
+        if isinstance(keywords, Sequence) and not isinstance(keywords, (str, bytes, bytearray)):
+            keyword_text = " ".join(str(keyword) for keyword in keywords[:8])
+        else:
+            keyword_text = ""
         text = f"{is_code} {title}. {scope or body} {keyword_text}"
         text = re.sub(r"\s+", " ", text).strip()
         return text[:MAX_DOCUMENT_CHARS]

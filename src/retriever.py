@@ -76,7 +76,12 @@ def normalize_standard_code(code: str) -> str:
 class HybridRetriever:
     """Retrieve standards with FAISS, BM25, RRF fusion, and metadata boosts."""
 
-    def __init__(self, data_dir: str | Path = DATA_DIR):
+    def __init__(
+        self,
+        data_dir: str | Path = DATA_DIR,
+        model: Any | None = None,
+        embed_model: str = EMBED_MODEL,
+    ):
         self.data_dir = Path(data_dir)
         if self.data_dir.is_file():
             self.data_dir = self.data_dir.parent
@@ -85,21 +90,41 @@ class HybridRetriever:
         self.bm25 = self._load_bm25(self.data_dir / "bm25.pkl")
         self.code_lookup = self._load_code_lookup(self.data_dir / "codes.json")
         self.use_dense = False
-        self._model = None
+        self._model = model
+        self._embed_model = embed_model
+
+    def _load_sentence_transformer(self):
+        try:
+            from sentence_transformers import SentenceTransformer
+        except ImportError as exc:
+            raise ImportError(
+                "Dense retrieval requires the optional dependency "
+                "`sentence-transformers`. Install it to enable embedding-based "
+                "search, or construct `HybridRetriever` with a preloaded `model=`."
+            ) from exc
+
+        try:
+            return SentenceTransformer(self._embed_model)
+        except Exception as exc:
+            raise RuntimeError(
+                "Failed to initialize the sentence-transformers model "
+                f"{self._embed_model!r}. Ensure the model name/path is correct and "
+                "that the model is available locally or downloadable in this "
+                "environment. You can also pass a preloaded `model=` to "
+                "`HybridRetriever`."
+            ) from exc
 
     @property
     def model(self):
         if self._model is None:
-            from sentence_transformers import SentenceTransformer
-
-            self._model = SentenceTransformer(EMBED_MODEL)
+            self._model = self._load_sentence_transformer()
         return self._model
 
     @staticmethod
     def _missing_artifacts_message(paths: list[Path]) -> str:
         missing = ", ".join(str(path) for path in paths if not path.exists())
         return (
-            "Plan 02 index artifacts are missing: "
+            "Retrieval artifacts are missing: "
             f"{missing}. Build them with `python -m src.indexer --catalog "
             "data/standards_catalog.json --output-dir data`."
         )
