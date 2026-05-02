@@ -7,6 +7,7 @@ from functools import lru_cache
 from html import escape
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote_plus
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
@@ -1999,14 +2000,13 @@ INDEX_HTML = """
       return (translations[currentLang] && translations[currentLang][key]) || baseText[key] || key;
     }
 
-    function bisPreviewUrl(code) {
+    function bisPortalSearchUrl(code) {
       const match = String(code || "").match(/IS\\s*(\\d{2,5})(?:\\s*\\(\\s*Part\\s*(\\d+)(?:\\s*\\/\\s*Sec\\s*(\\d+))?\\s*\\))?\\s*[:\\-]\\s*(\\d{4})/i);
       if (!match) return "https://standardsbis.bsbedge.com/";
-      const parts = [match[1]];
-      if (match[2]) parts.push(match[2]);
-      if (match[3]) parts.push(match[3]);
-      parts.push(match[4]);
-      return `https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=${parts.join("_")}`;
+      const terms = ["IS", match[1]];
+      if (match[2]) terms.push("Part", match[2]);
+      if (match[3]) terms.push("Sec", match[3]);
+      return `https://standardsbis.bsbedge.com/BIS_SearchStandard.aspx?Standard_Number=${encodeURIComponent(terms.join(" "))}&id=0`;
     }
 
     function applyLanguage(lang) {
@@ -2095,7 +2095,7 @@ INDEX_HTML = """
               <h3><span class="code">${escapeHtml(item.code)}</span>${escapeHtml(item.title || "BIS standard")}</h3>
               <p class="rationale">${escapeHtml(item.rationale || "Matched against the BIS catalogue.")}</p>
               <div class="result-meta">
-                <a href="${escapeHtml(item.source_url || bisPreviewUrl(item.code))}" target="_blank" rel="noopener">${escapeHtml(item.source_url || bisPreviewUrl(item.code))}</a>
+                <a href="${escapeHtml(item.source_url || bisPortalSearchUrl(item.code))}" target="_blank" rel="noopener">${escapeHtml(item.source_url || bisPortalSearchUrl(item.code))}</a>
               </div>
             </div>
           </article>
@@ -2206,21 +2206,20 @@ IS_CODE_PREVIEW_PATTERN = re.compile(
     r"\s*[:\-]\s*(\d{4})",
     re.IGNORECASE,
 )
-BIS_PREVIEW_BASE_URL = "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id="
+BIS_STANDARD_SEARCH_BASE_URL = "https://standardsbis.bsbedge.com/BIS_SearchStandard.aspx"
 
 
-def _bis_preview_url_for_code(code: str) -> str:
+def _bis_portal_search_url_for_code(code: str) -> str:
     match = IS_CODE_PREVIEW_PATTERN.search(str(code or ""))
     if not match:
         return "https://standardsbis.bsbedge.com/"
-    number, part, section, year = match.groups()
-    preview_parts = [number]
+    number, part, section, _year = match.groups()
+    search_terms = ["IS", number]
     if part:
-        preview_parts.append(part)
+        search_terms.extend(["Part", part])
     if section:
-        preview_parts.append(section)
-    preview_parts.append(year)
-    return f"{BIS_PREVIEW_BASE_URL}{'_'.join(preview_parts)}"
+        search_terms.extend(["Sec", section])
+    return f"{BIS_STANDARD_SEARCH_BASE_URL}?Standard_Number={quote_plus(' '.join(search_terms))}&id=0"
 
 
 def _recommendation_items(codes: list[str], language: str = "en") -> list[dict[str, Any]]:
@@ -2243,7 +2242,7 @@ def _recommendation_items(codes: list[str], language: str = "en") -> list[dict[s
                 "title": title.title() if title.isupper() else title,
                 "rationale": rationale,
                 "confidence": round(max(0.52, 0.94 - (index * (0.36 / total))), 2),
-                "source_url": _bis_preview_url_for_code(code),
+                "source_url": _bis_portal_search_url_for_code(code),
             }
         )
     return items

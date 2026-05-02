@@ -2,7 +2,7 @@ import re
 
 from fastapi.testclient import TestClient
 
-from app import INDEX_HTML, _bis_preview_url_for_code, app
+from app import INDEX_HTML, _bis_portal_search_url_for_code, app
 
 
 client = TestClient(app)
@@ -77,24 +77,24 @@ def test_multilingual_pencil_queries_return_verified_external_standards():
         ], language
 
 
-def test_recommendations_use_direct_bis_preview_links():
+def test_recommendations_use_bis_search_links_without_old_years():
     assert (
-        _bis_preview_url_for_code("IS 1375:2021")
-        == "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=1375_2021"
+        _bis_portal_search_url_for_code("IS 1375:2021")
+        == "https://standardsbis.bsbedge.com/BIS_SearchStandard.aspx?Standard_Number=IS+1375&id=0"
     )
     assert (
-        _bis_preview_url_for_code("IS 404 (Part 1): 1993")
-        == "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=404_1_1993"
+        _bis_portal_search_url_for_code("IS 404 (Part 1): 1993")
+        == "https://standardsbis.bsbedge.com/BIS_SearchStandard.aspx?Standard_Number=IS+404+Part+1&id=0"
     )
-    assert "BIS_SearchStandard.aspx" not in INDEX_HTML
 
     response = client.post("/recommend", json={"query": "IS 269:1989 ordinary portland cement", "top_k": 1})
     payload = response.json()
 
     assert response.status_code == 200
     assert payload["recommendations"][0]["source_url"] == (
-        "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=269_1989"
+        "https://standardsbis.bsbedge.com/BIS_SearchStandard.aspx?Standard_Number=IS+269&id=0"
     )
+    assert "269_1989" not in payload["recommendations"][0]["source_url"]
 
 
 def test_edible_oil_queries_return_relevant_oil_standards_with_links():
