@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from src.query_processor import ProcessedQuery, QueryProcessor
-from src.retriever import HybridRetriever, normalize_standard_code
+from src.retriever import BOOST_EXPLICIT_CODE, BOOST_TITLE_TOKEN, RRF_K, HybridRetriever, normalize_standard_code
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -71,6 +71,10 @@ def make_fake_retriever():
         "is383:1970": 2,
     }
     retriever._model = FakeModel()
+    retriever.use_dense = False
+    retriever.boost_explicit_code = BOOST_EXPLICIT_CODE
+    retriever.boost_title_token = BOOST_TITLE_TOKEN
+    retriever.rrf_k = RRF_K
     return retriever
 
 
@@ -150,7 +154,10 @@ def test_explicit_code_lifts_to_top(real_retriever):
 
 def test_all_public_queries_recall(real_retriever):
     processor = QueryProcessor()
-    test_set = json.loads((ROOT / "public_test_set.json").read_text(encoding="utf-8"))
+    test_set_path = ROOT / "public_test_set.json"
+    if not test_set_path.exists():
+        pytest.skip("public_test_set.json is not available")
+    test_set = json.loads(test_set_path.read_text(encoding="utf-8"))
 
     misses = []
     for item in test_set:

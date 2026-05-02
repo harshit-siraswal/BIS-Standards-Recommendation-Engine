@@ -10,9 +10,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-import src.retriever as retriever_module  # noqa: E402
 from src.pipeline import BISPipeline  # noqa: E402
-from src.retriever import normalize_standard_code  # noqa: E402
+from src.retriever import BOOST_EXPLICIT_CODE, BOOST_TITLE_TOKEN, RRF_K, normalize_standard_code  # noqa: E402
 
 
 def eval_set(pipeline: BISPipeline, test_set: list[dict[str, object]]) -> tuple[float, float]:
@@ -48,12 +47,12 @@ def tune(test_set_path: str = "public_test_set.json") -> tuple[float, float, tup
     }
 
     pipeline = BISPipeline()
-    best = (0.0, 0.0, (retriever_module.BOOST_EXPLICIT_CODE, retriever_module.BOOST_TITLE_TOKEN, retriever_module.RRF_K))
+    pipeline.retriever.use_dense = False
+    best = (0.0, 0.0, (BOOST_EXPLICIT_CODE, BOOST_TITLE_TOKEN, RRF_K))
     for explicit_boost, title_boost, rrf_k in itertools.product(*grid.values()):
-        retriever_module.BOOST_EXPLICIT_CODE = explicit_boost
-        retriever_module.BOOST_TITLE_TOKEN = title_boost
-        retriever_module.RRF_K = rrf_k
-        pipeline.retriever.use_dense = False
+        pipeline.retriever.boost_explicit_code = explicit_boost
+        pipeline.retriever.boost_title_token = title_boost
+        pipeline.retriever.rrf_k = rrf_k
         hit3, mrr5 = eval_set(pipeline, test_set)
         print(
             f"BEC={explicit_boost:.2f} BTT={title_boost:.2f} RRF={rrf_k} "

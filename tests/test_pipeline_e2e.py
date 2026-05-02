@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from eval_script import evaluate_results
+from eval_script import evaluate_results, normalize_std
 from run import run_file
 from src.pipeline import BISPipeline
 from src.retriever import normalize_standard_code
@@ -10,7 +10,7 @@ from src.retriever import normalize_standard_code
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_pipeline_public_set_metrics():
+def test_pipeline_public_set_metrics(tmp_path):
     test_set = json.loads((ROOT / "public_test_set.json").read_text(encoding="utf-8"))
     pipeline = BISPipeline()
     results = []
@@ -24,9 +24,23 @@ def test_pipeline_public_set_metrics():
             }
         )
 
-    metrics = evaluate_results(results)
-    assert metrics["hit_rate_at_3"] >= 0.9
-    assert metrics["mrr_at_5"] >= 0.85
+    output = tmp_path / "results.json"
+    output.write_text(json.dumps(results), encoding="utf-8")
+    evaluate_results(output)
+
+    hits_at_3 = 0
+    reciprocal_rank_sum = 0.0
+    for item in results:
+        expected = {normalize_std(code) for code in item["expected_standards"]}
+        retrieved = [normalize_std(code) for code in item["retrieved_standards"]]
+        if any(code in expected for code in retrieved[:3]):
+            hits_at_3 += 1
+        rank = next((index for index, code in enumerate(retrieved[:5], start=1) if code in expected), None)
+        if rank is not None:
+            reciprocal_rank_sum += 1.0 / rank
+
+    assert hits_at_3 / len(results) >= 0.9
+    assert reciprocal_rank_sum / len(results) >= 0.85
 
 
 def test_run_file_writes_expected_schema(tmp_path):

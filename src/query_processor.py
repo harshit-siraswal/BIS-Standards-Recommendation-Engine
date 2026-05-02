@@ -6,12 +6,13 @@ import argparse
 import json
 import re
 import unicodedata
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable, Iterable
 
 
 DEFAULT_SYNONYMS_PATH = Path(__file__).resolve().parents[1] / "data" / "synonyms.json"
+DEFAULT_COMPLIANCE_FLAGS_PATH = Path(__file__).resolve().parents[1] / "data" / "compliance_flags.json"
 WORD_JOIN_PATTERN = re.compile(r"[^a-z0-9]+")
 WHITESPACE_PATTERN = re.compile(r"\s+")
 TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
@@ -31,6 +32,7 @@ class ProcessedQuery:
     expanded: str
     explicit_codes: list[str]
     tokens: list[str]
+    compliance_warnings: list[str] = field(default_factory=list)
 
 
 def normalize_query_text(query: str) -> str:
@@ -116,6 +118,7 @@ class SynonymExpander:
         except json.JSONDecodeError as exc:
             raise ValueError(f"Synonyms file is not valid JSON: {self.synonyms_path}") from exc
         self.flat = self._flatten(data)
+        self._sorted_keys = sorted(self.flat, key=lambda key: (-len(key), key))
 
     @staticmethod
     def _flatten(data: dict[str, dict[str, list[str]]]) -> dict[str, list[str]]:
@@ -123,9 +126,20 @@ class SynonymExpander:
         for mapping in data.values():
             for term, synonyms in mapping.items():
                 related = _ordered_unique([term, *synonyms])
-                for alias in related:
-                    key = normalize_match_text(alias)
-                    expansions = [item for item in related if normalize_match_text(item) != key]
+                normalized_related: list[tuple[str, str]] = []
+                for item in related:
+                    item_key = normalize_match_text(item)
+                    if item_key:
+                        normalized_related.append((item_key, item))
+                expansions_by_key: dict[str, list[str]] = {}
+                for key, _alias in normalized_related:
+                    if key not in expansions_by_key:
+                        expansions_by_key[key] = [
+                            item
+                            for item_key, item in normalized_related
+                            if item_key != key
+                        ]
+                for key, expansions in expansions_by_key.items():
                     existing = flat.setdefault(key, [])
                     for expansion in expansions:
                         if expansion not in existing:
@@ -139,7 +153,7 @@ class SynonymExpander:
         appended: list[str] = []
         appended_match_keys: set[str] = set()
 
-        for term_key in sorted(self.flat, key=lambda key: (-len(key), key)):
+        for term_key in self._sorted_keys:
             if f" {term_key} " not in searchable_query:
                 continue
 
@@ -160,9 +174,46 @@ class SynonymExpander:
 
 
 class QueryProcessor:
-    def __init__(self, synonyms_path: str | Path = DEFAULT_SYNONYMS_PATH):
+    def __init__(
+        self,
+        synonyms_path: str | Path = DEFAULT_SYNONYMS_PATH,
+        compliance_flags_path: str | Path = DEFAULT_COMPLIANCE_FLAGS_PATH,
+    ):
         self.expander = SynonymExpander(synonyms_path)
+        self.compliance_flags = self._load_compliance_flags(compliance_flags_path)
         self.tokenize = _load_tokenizer()
+
+    @staticmethod
+    def _load_compliance_flags(flags_path: str | Path) -> dict[str, str]:
+        path = Path(flags_path)
+        if not path.exists():
+            return {}
+        try:
+            with path.open(encoding="utf-8") as file:
+                payload = json.load(file)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Compliance flags file is not valid JSON: {path}") from exc
+
+        flags: dict[str, str] = {}
+        for term, metadata in (payload.get("regulated_terms") or {}).items():
+            key = normalize_match_text(term)
+            if not key:
+                continue
+            if isinstance(metadata, dict):
+                warning = str(metadata.get("warning") or "").strip()
+            else:
+                warning = str(metadata).strip()
+            if warning:
+                flags[key] = warning
+        return flags
+
+    def _compliance_warnings(self, normalized: str, expanded: str) -> list[str]:
+        searchable = f" {normalize_match_text(normalized)} {normalize_match_text(expanded)} "
+        warnings: list[str] = []
+        for term_key, warning in self.compliance_flags.items():
+            if f" {term_key} " in searchable and warning not in warnings:
+                warnings.append(warning)
+        return warnings
 
     def process(self, query: str) -> ProcessedQuery:
         normalized = normalize_query_text(query)
@@ -175,6 +226,7 @@ class QueryProcessor:
             expanded=expanded,
             explicit_codes=explicit_codes,
             tokens=self.tokenize(expanded),
+            compliance_warnings=self._compliance_warnings(normalized, expanded),
         )
 
 

@@ -8,7 +8,7 @@ import re
 import unicodedata
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable
 
 import fitz
 
@@ -95,11 +95,11 @@ class Standard:
     is_code_normalized: str
     number: str
     year: str
-    part: Optional[str]
+    part: str | None
     title: str
     scope: str
     body: str
-    keywords: List[str]
+    keywords: list[str]
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -122,11 +122,21 @@ def clean_inline_text(text: str) -> str:
     return text.strip(" ;,.-\n\t")
 
 
-def format_is_code(number: str, part: Optional[str], year: str) -> str:
+def _normalize_part(part: str | None) -> str | None:
+    if not part:
+        return None
+    cleaned = str(part).strip()
+    if not cleaned:
+        return None
+    return str(int(cleaned)) if cleaned.isdigit() else cleaned
+
+
+def format_is_code(number: str, part: str | None, year: str) -> str:
     number = str(int(number)) if number.isdigit() else number.strip()
     year = year.strip()
-    if part:
-        return f"IS {number} (Part {int(part)}): {year}"
+    normalized_part = _normalize_part(part)
+    if normalized_part:
+        return f"IS {number} (Part {normalized_part}): {year}"
     return f"IS {number}: {year}"
 
 
@@ -188,7 +198,15 @@ def extract_full_text(pdf_path: str, prefer_pdfplumber: bool = False) -> str:
         return text
 
     LOGGER.warning("PyMuPDF returned empty text, trying pdfplumber fallback")
-    return _extract_text_with_pdfplumber(path)
+    try:
+        return _extract_text_with_pdfplumber(path)
+    except RuntimeError as exc:
+        if str(exc) == "pdfplumber is not installed":
+            raise RuntimeError(
+                "PyMuPDF returned empty text and pdfplumber is not installed; "
+                "cannot extract PDF text from this file."
+            ) from exc
+        raise
 
 
 def _line_is_noise(line: str) -> bool:
@@ -278,8 +296,8 @@ def _extract_scope_from_segment(segment: str, prefer_last: bool = False) -> str:
 def extract_scope(
     window: str,
     title: str = "",
-    code_relative_start: Optional[int] = None,
-    code_relative_end: Optional[int] = None,
+    code_relative_start: int | None = None,
+    code_relative_end: int | None = None,
 ) -> str:
     candidates: list[tuple[int, str]] = []
 
@@ -358,7 +376,7 @@ def _title_phrases(text: str) -> Iterable[str]:
                 yield phrase
 
 
-def extract_keywords(title: str, scope: str) -> List[str]:
+def extract_keywords(title: str, scope: str) -> list[str]:
     keywords: set[str] = set()
     combined = clean_inline_text(f"{title} {scope}")
     text_low = combined.lower()
@@ -420,8 +438,10 @@ def _candidate_from_match(full_text: str, match: re.Match[str]) -> tuple[Standar
     normalized_keyword = normalize_is_code(canonical)
     keyword_set = set(keywords)
     keyword_set.update({code_keyword, normalized_keyword, number, year})
-    while len(keyword_set) < 3:
-        keyword_set.add(canonical.lower())
+    for fallback in ("standard", "bis", "indian standard", f"is {number}"):
+        if len(keyword_set) >= 3:
+            break
+        keyword_set.add(fallback)
     keywords = sorted(keyword_set)[:30]
 
     standard = Standard(
@@ -429,7 +449,7 @@ def _candidate_from_match(full_text: str, match: re.Match[str]) -> tuple[Standar
         is_code_normalized=normalize_is_code(canonical),
         number=number,
         year=year,
-        part=str(int(part)) if part else None,
+        part=_normalize_part(part),
         title=title,
         scope=scope,
         body=body,
@@ -439,7 +459,7 @@ def _candidate_from_match(full_text: str, match: re.Match[str]) -> tuple[Standar
     return standard, quality
 
 
-def parse_pdf_to_catalog(pdf_path: str, output_path: str) -> List[Standard]:
+def parse_pdf_to_catalog(pdf_path: str, output_path: str) -> list[Standard]:
     full_text = extract_full_text(pdf_path)
     candidates: dict[str, tuple[Standard, float]] = {}
 

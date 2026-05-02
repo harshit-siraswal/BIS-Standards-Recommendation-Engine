@@ -25,7 +25,8 @@ def test_noisy_query_robustness():
     pipeline = BISPipeline()
     for query in queries:
         out = pipeline.run_query(query)
-        assert len(out["retrieved_standards"]) == 5
+        retrieved = out["retrieved_standards"]
+        assert len(retrieved) == 5, f"Query {query!r} returned {len(retrieved)} results: {retrieved}"
 
 
 def test_long_and_unicode_queries_do_not_crash():
@@ -33,5 +34,10 @@ def test_long_and_unicode_queries_do_not_crash():
     out = pipeline.run_query(("standards " * 80) + "33 grade OPC")
     unicode_out = pipeline.run_query("Which standard covers cafe\u0301 style white Portland cement?")
 
-    assert len(out["retrieved_standards"]) == 5
-    assert len(unicode_out["retrieved_standards"]) == 5
+    assert len(out["retrieved_standards"]) == 5, (
+        f"Long query returned {len(out['retrieved_standards'])} results: {out['retrieved_standards']}"
+    )
+    assert len(unicode_out["retrieved_standards"]) == 5, (
+        "Unicode query returned "
+        f"{len(unicode_out['retrieved_standards'])} results: {unicode_out['retrieved_standards']}"
+    )

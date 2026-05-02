@@ -1,0 +1,16 @@
+{
+  "regulated_terms": {
+    "asbestos sheet": {
+      "material": "asbestos",
+      "warning": "Asbestos-related terms are retained for BIS standards lookup and legacy reference only; verify jurisdictional compliance before product use or recommendation."
+    },
+    "asbestos cement sheet": {
+      "material": "asbestos",
+      "warning": "Asbestos-related terms are retained for BIS standards lookup and legacy reference only; verify jurisdictional compliance before product use or recommendation."
+    },
+    "ac sheet": {
+      "material": "asbestos",
+      "warning": "AC sheet may refer to asbestos cement sheet; verify jurisdictional compliance before product use or recommendation."
+    }
+  }
+}

@@ -15,15 +15,17 @@ from src.retriever import CANDIDATE_TOP_K, HybridRetriever, RetrievalResult
 
 MAX_QUERY_CHARS = 500
 SEED = 42
+_NUMPY_RNG: Any | None = None
 
 
 def set_random_seeds(seed: int = SEED) -> None:
     """Set available random seeds for deterministic local execution."""
+    global _NUMPY_RNG
     random.seed(seed)
     if "numpy" in sys.modules:
         import numpy as np
 
-        np.random.seed(seed)
+        _NUMPY_RNG = np.random.default_rng(seed)
     if "torch" in sys.modules:
         import torch
 
@@ -38,6 +40,9 @@ class BISPipeline:
         artifacts_dir: str | Path = "data",
         use_reranker: bool = False,
         catalog_path: str | Path | None = None,
+        boost_explicit_code: float | None = None,
+        boost_title_token: float | None = None,
+        rrf_k: int | None = None,
     ) -> None:
         """
         Initialize the pipeline.
@@ -49,6 +54,9 @@ class BISPipeline:
             catalog_path: Backward-compatible alias for older callers that passed
                 a catalog file path such as ``data/standards_catalog.json``. When
                 provided, its parent directory is used as the artifacts directory.
+            boost_explicit_code: Optional retriever explicit-code boost override.
+            boost_title_token: Optional retriever title-token boost override.
+            rrf_k: Optional retriever RRF fusion constant override.
         """
         set_random_seeds()
         self.query_processor = QueryProcessor()
@@ -56,7 +64,14 @@ class BISPipeline:
             artifacts_dir=artifacts_dir,
             catalog_path=catalog_path,
         )
-        self.retriever = HybridRetriever(resolved_artifacts_dir)
+        retriever_kwargs: dict[str, Any] = {}
+        if boost_explicit_code is not None:
+            retriever_kwargs["boost_explicit_code"] = boost_explicit_code
+        if boost_title_token is not None:
+            retriever_kwargs["boost_title_token"] = boost_title_token
+        if rrf_k is not None:
+            retriever_kwargs["rrf_k"] = rrf_k
+        self.retriever = HybridRetriever(resolved_artifacts_dir, **retriever_kwargs)
         self.reranker = Reranker() if use_reranker else None
 
     @staticmethod
@@ -79,7 +94,7 @@ class BISPipeline:
         ranked = self._rank(clean_query, candidates, top_k)
         latency = time.perf_counter() - start
         return {
-            "query": str(query or ""),
+            "query": clean_query,
             "retrieved_standards": [self._code(result.standard) for result in ranked],
             "latency_seconds": round(latency, 4),
         }

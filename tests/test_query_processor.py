@@ -67,6 +67,13 @@ def test_no_false_codes():
     assert pq.explicit_codes == []
 
 
+def test_asbestos_terms_emit_compliance_warning():
+    qp = QueryProcessor()
+    pq = qp.process("corrugated asbestos cement sheet")
+
+    assert any("asbestos" in warning.lower() for warning in pq.compliance_warnings)
+
+
 def test_expander_supports_reverse_mapping(tmp_path):
     synonyms_path = tmp_path / "synonyms.json"
     synonyms_path.write_text(

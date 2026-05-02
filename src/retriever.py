@@ -81,6 +81,9 @@ class HybridRetriever:
         data_dir: str | Path = DATA_DIR,
         model: Any | None = None,
         embed_model: str = EMBED_MODEL,
+        boost_explicit_code: float = BOOST_EXPLICIT_CODE,
+        boost_title_token: float = BOOST_TITLE_TOKEN,
+        rrf_k: int = RRF_K,
     ):
         self.data_dir = Path(data_dir)
         if self.data_dir.is_file():
@@ -92,6 +95,9 @@ class HybridRetriever:
         self.use_dense = False
         self._model = model
         self._embed_model = embed_model
+        self.boost_explicit_code = boost_explicit_code
+        self.boost_title_token = boost_title_token
+        self.rrf_k = rrf_k
 
     def _load_sentence_transformer(self):
         try:
@@ -284,7 +290,7 @@ class HybridRetriever:
         query_low = pq.expanded.lower()
 
         for idx in self._explicit_code_indices(pq.explicit_codes):
-            boosted[idx] = boosted.get(idx, 0.0) + BOOST_EXPLICIT_CODE
+            boosted[idx] = boosted.get(idx, 0.0) + self.boost_explicit_code
 
         query_numbers = set(re.findall(r"\b(\d{2,4})\b", query_low))
         query_phrase_text = re.sub(r"[^a-z0-9]+", " ", query_low)
@@ -301,7 +307,7 @@ class HybridRetriever:
 
             title_tokens = standard[META_TITLE_TOKENS_KEY]
             title_overlap = len(title_tokens & query_tokens)
-            title_boost = min(title_overlap * BOOST_TITLE_TOKEN, BOOST_TITLE_CAP)
+            title_boost = min(title_overlap * self.boost_title_token, BOOST_TITLE_CAP)
             title_text = standard[META_TITLE_TEXT_KEY]
             if title_text and len(title_text) >= 5 and title_text in query_low:
                 title_boost += BOOST_EXACT_TITLE
@@ -327,9 +333,9 @@ class HybridRetriever:
         if top_k <= 0:
             return []
 
-        dense = self._dense_search(pq.expanded, DENSE_TOP_K) if getattr(self, "use_dense", True) else []
+        dense = self._dense_search(pq.expanded, DENSE_TOP_K) if self.use_dense else []
         sparse = self._sparse_search(pq.tokens, SPARSE_TOP_K)
-        boosted = self._apply_boosts(self._rrf_fuse(dense, sparse, k=RRF_K), pq)
+        boosted = self._apply_boosts(self._rrf_fuse(dense, sparse, k=self.rrf_k), pq)
         ranked = sorted(boosted.items(), key=lambda item: (-item[1], item[0]))[:top_k]
 
         dense_pos = {idx: rank for rank, idx in enumerate(dense)}

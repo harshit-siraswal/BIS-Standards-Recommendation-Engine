@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, List, Mapping, Optional, Sequence, TYPE_CHECKING
 
 try:
@@ -61,7 +61,7 @@ class Reranker:
                 ) from exc
 
             print(f"Loading reranker: {self._model_name}")
-            self._model = CrossEncoder(self._model_name, max_length=512)
+            self._model = CrossEncoder(self._model_name, max_length=MAX_DOCUMENT_CHARS)
         return self._model
 
     def rerank(
@@ -85,10 +85,12 @@ class Reranker:
         )
 
         retrieval_weight = 1.0 - self._rerank_weight
+        reranked: list[RetrievalResult] = []
         for index, candidate in enumerate(rerank_candidates):
-            candidate.score = self._rerank_weight * float(scores[index]) + retrieval_weight * float(candidate.score)
+            new_score = self._rerank_weight * float(scores[index]) + retrieval_weight * float(candidate.score)
+            reranked.append(replace(candidate, score=new_score))
 
-        return sorted(rerank_candidates, key=lambda result: -result.score)[:top_k]
+        return sorted(reranked, key=lambda result: -result.score)[:top_k]
 
     def rerank_safe(
         self,
