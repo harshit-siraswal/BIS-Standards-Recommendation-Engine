@@ -1,26 +1,36 @@
-"""Convenience wrapper around eval_script.py for local evaluation."""
+"""Run the BIS pipeline on the public test set and evaluate the results."""
 
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from eval_script import evaluate_results, load_results  # noqa: E402
-
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Evaluate a BIS results file.")
+    parser = argparse.ArgumentParser(description="Run and evaluate BIS recommendations.")
+    parser.add_argument("--input", default="public_test_set.json", help="Path to evaluator input JSON.")
     parser.add_argument("--results", default="results.json", help="Path to results JSON.")
+    parser.add_argument("--rebuild", action="store_true", help="Rebuild catalog and indexes before running.")
     args = parser.parse_args(argv)
 
-    metrics = evaluate_results(load_results(args.results))
-    print(f"Hit Rate @3 : {metrics['hit_rate_at_3']:.2%}")
-    print(f"MRR @5      : {metrics['mrr_at_5']:.4f}")
-    print(f"Avg Latency : {metrics['avg_latency_seconds']:.4f}s")
+    command = [
+        sys.executable,
+        "run.py",
+        "--input",
+        args.input,
+        "--output",
+        args.results,
+    ]
+    if args.rebuild:
+        command.append("--rebuild")
+    subprocess.run(command, check=True)
+    subprocess.run([sys.executable, "scripts/check_format.py", args.results], check=True)
+    subprocess.run([sys.executable, "eval_script.py", "--results", args.results], check=True)
     return 0
 
 

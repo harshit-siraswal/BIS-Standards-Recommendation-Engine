@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
 
 REQUIRED_KEYS = {"id", "query", "expected_standards", "retrieved_standards", "latency_seconds"}
+IS_CODE_PATTERN = re.compile(r"^IS\s+\d+(?:\s+\(Part\s+\d+\))?\s*:\s*\d{4}$")
 
 
 def check_format(path: str | Path) -> None:
@@ -26,7 +28,7 @@ def check_format(path: str | Path) -> None:
             raise ValueError(f"row {index} missing keys: {sorted(missing)}")
         if not isinstance(item["retrieved_standards"], list) or len(item["retrieved_standards"]) != 5:
             raise ValueError(f"row {index} must contain exactly 5 retrieved_standards")
-        if not all(isinstance(code, str) and code for code in item["retrieved_standards"]):
+        if not all(isinstance(code, str) and IS_CODE_PATTERN.match(code) for code in item["retrieved_standards"]):
             raise ValueError(f"row {index} contains an invalid retrieved standard")
         if not isinstance(item["latency_seconds"], (int, float)):
             raise ValueError(f"row {index} latency_seconds must be numeric")
