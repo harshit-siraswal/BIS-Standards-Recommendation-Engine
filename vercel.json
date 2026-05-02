@@ -1,9 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "pip install -r requirements-vercel.txt",
-  "functions": {
-    "app.py": {
-      "excludeFiles": "{.pytest_cache/**,__pycache__/**,tests/**,scripts/**,remotion-bis-ui/**,dataset.pdf,eval_script.py,public_test_set.json,sample_output.json,results.json,eval_report.md,remaining_work_report.md}"
-    }
-  }
+  "installCommand": "pip install -r requirements-vercel.txt"
 }
