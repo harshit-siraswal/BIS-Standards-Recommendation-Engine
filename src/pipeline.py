@@ -35,13 +35,40 @@ class BISPipeline:
 
     def __init__(
         self,
-        catalog_path: str | Path = "data/standards_catalog.json",
+        artifacts_dir: str | Path = "data",
         use_reranker: bool = False,
+        catalog_path: str | Path | None = None,
     ) -> None:
+        """
+        Initialize the pipeline.
+
+        Args:
+            artifacts_dir: Directory containing retriever artifacts built by the
+                indexer (for example ``standards_indexed.json`` and FAISS files).
+            use_reranker: Whether to enable the reranker.
+            catalog_path: Backward-compatible alias for older callers that passed
+                a catalog file path such as ``data/standards_catalog.json``. When
+                provided, its parent directory is used as the artifacts directory.
+        """
         set_random_seeds()
         self.query_processor = QueryProcessor()
-        self.retriever = HybridRetriever(catalog_path)
+        resolved_artifacts_dir = self._resolve_artifacts_dir(
+            artifacts_dir=artifacts_dir,
+            catalog_path=catalog_path,
+        )
+        self.retriever = HybridRetriever(resolved_artifacts_dir)
         self.reranker = Reranker() if use_reranker else None
+
+    @staticmethod
+    def _resolve_artifacts_dir(
+        artifacts_dir: str | Path,
+        catalog_path: str | Path | None = None,
+    ) -> Path:
+        if catalog_path is None:
+            return Path(artifacts_dir)
+
+        legacy_path = Path(catalog_path)
+        return legacy_path.parent if legacy_path.suffix else legacy_path
 
     def run_query(self, query: str, top_k: int = FINAL_TOP_K) -> dict[str, Any]:
         """Run one query and return retrieved standards plus latency."""
