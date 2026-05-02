@@ -23,30 +23,57 @@ IS_CODE_QUERY_PATTERN = re.compile(
     re.IGNORECASE,
 )
 STOP_WORDS = frozenset({"the", "a", "an", "of", "to", "and", "or", "in", "on", "for", "be"})
+PENCIL_TERMS = (
+    "pencil",
+    "pencils",
+    "pensil",
+    "pencilon",
+    "pencilan",
+    "\u092a\u0947\u0902\u0938\u093f\u0932",
+    "\u092a\u0947\u0928\u094d\u0938\u093f\u0932",
+    "\u0baa\u0bc6\u0ba9\u0bcd\u0b9a\u0bbf\u0bb2\u0bcd",
+    "\u0baa\u0bc6\u0ba9\u0bcd\u0b9a\u0bbf\u0bb2\u0bcd\u0b95\u0bb3\u0bcd",
+    "\u0c2a\u0c46\u0c28\u0c4d\u0c38\u0c3f\u0c32\u0c4d",
+    "\u0c2a\u0c46\u0c28\u0c4d\u0c38\u0c3f\u0c32\u0c4d\u0c38\u0c4d",
+    "\u0aaa\u0ac7\u0aa8\u0acd\u0ab8\u0abf\u0ab2",
+    "\u0caa\u0cc6\u0ca8\u0ccd\u0cb8\u0cbf\u0cb2\u0ccd",
+    "\u0d2a\u0d46\u0d7b\u0d38\u0d3f\u0d7d",
+    "\u0d2a\u0d46\u0d7b\u0d38\u0d3f\u0d32\u0d41\u0d15\u0d7e",
+    "\u09aa\u09c7\u09a8\u09cd\u09b8\u09bf\u09b2",
+    "\u0a2a\u0a48\u0a02\u0a38\u0a3f\u0a32",
+    "\u067e\u0646\u0633\u0644",
+)
+EDIBLE_OIL_TERMS = (
+    "edible oil",
+    "edible oils",
+    "cooking oil",
+    "cooking oils",
+    "vegetable oil",
+    "vegetable oils",
+    "khadya tel",
+    "khane ka tel",
+    "khaane ka tel",
+    "\u0916\u093e\u0926\u094d\u092f \u0924\u0947\u0932",
+    "\u0916\u093e\u0928\u0947 \u0915\u093e \u0924\u0947\u0932",
+    "\u0b89\u0ba3\u0bb5\u0bc1 \u0b8e\u0ba3\u0bcd\u0ba3\u0bc6\u0baf\u0bcd",
+    "\u0c24\u0c3f\u0c28\u0c47 \u0c28\u0c42\u0c28\u0c46",
+    "\u0a96\u0abe\u0aa6\u0acd\u0aaf \u0aa4\u0ac7\u0ab2",
+    "\u0c86\u0cb9\u0cbe\u0cb0 \u0c8e\u0ca3\u0ccd\u0ca3\u0cc6",
+    "\u0d2d\u0d15\u0d4d\u0d37\u0d4d\u0d2f \u0d0e\u0d23\u0d4d\u0d23",
+    "\u09ad\u09cb\u099c\u09cd\u09af \u09a4\u09c7\u09b2",
+    "\u0a16\u0a3e\u0a26 \u0a24\u0a47\u0a32",
+    "\u062e\u0648\u0631\u062f\u0646\u06cc \u062a\u06cc\u0644",
+)
 OUT_OF_SCOPE_PRODUCT_RULES = (
     (
-        (
-            "pencil",
-            "pencils",
-            "pensil",
-            "pencilon",
-            "pencilan",
-            "पेंसिल",
-            "पेन्सिल",
-            "பென்சில்",
-            "பென்சில்கள்",
-            "పెన్సిల్",
-            "పెన్సిల్స్",
-            "પેન્સિલ",
-            "ಪೆನ್ಸಿಲ್",
-            "പെൻസിൽ",
-            "പെൻസിലുകൾ",
-            "পেন্সিল",
-            "ਪੈਂਸਿਲ",
-            "پنسل",
-        ),
+        PENCIL_TERMS,
         "Graphite or black lead pencils are outside the bundled BIS SP 21 building-materials catalog. "
         "Verify pencil-specific BIS standards separately, such as IS 1375:2021 and IS 2079:2022.",
+    ),
+    (
+        EDIBLE_OIL_TERMS,
+        "Edible oil is outside the bundled BIS SP 21 building-materials catalog. "
+        "Use oil and fats standards such as IS 548 and the relevant oil-type specification.",
     ),
 )
 
@@ -105,6 +132,14 @@ def contains_any_term(text: str, terms: Iterable[str]) -> bool:
 
 def is_out_of_scope_product(query: str) -> bool:
     return any(contains_any_term(query, terms) for terms, _warning in OUT_OF_SCOPE_PRODUCT_RULES)
+
+
+def is_pencil_query(query: str) -> bool:
+    return contains_any_term(query, PENCIL_TERMS)
+
+
+def is_edible_oil_query(query: str) -> bool:
+    return contains_any_term(query, EDIBLE_OIL_TERMS)
 
 
 def _normalize_code_number(number: str) -> str:

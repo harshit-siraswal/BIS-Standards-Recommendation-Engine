@@ -92,6 +92,22 @@ def test_pencil_query_is_marked_out_of_scope():
         assert any("pencil" in warning.lower() for warning in pq.compliance_warnings)
 
 
+def test_edible_oil_query_is_marked_out_of_scope():
+    qp = QueryProcessor()
+    queries = [
+        "we make edible oil",
+        "\u0939\u092e \u0916\u093e\u0926\u094d\u092f \u0924\u0947\u0932 \u092c\u0928\u093e\u0924\u0947 \u0939\u0948\u0902",
+        "hum khane ka tel banate hain",
+        "\u0ba8\u0bbe\u0b99\u0bcd\u0b95\u0bb3\u0bcd \u0b89\u0ba3\u0bb5\u0bc1 \u0b8e\u0ba3\u0bcd\u0ba3\u0bc6\u0baf\u0bcd \u0ba4\u0baf\u0bbe\u0bb0\u0bbf\u0b95\u0bcd\u0b95\u0bbf\u0bb1\u0bcb\u0bae\u0bcd",
+    ]
+
+    for query in queries:
+        pq = qp.process(query)
+
+        assert pq.out_of_scope is True, query
+        assert any("edible oil" in warning.lower() for warning in pq.compliance_warnings)
+
+
 def test_expander_supports_reverse_mapping(tmp_path):
     synonyms_path = tmp_path / "synonyms.json"
     synonyms_path.write_text(

@@ -1,6 +1,8 @@
+import re
+
 from fastapi.testclient import TestClient
 
-from app import app
+from app import INDEX_HTML, app
 
 
 client = TestClient(app)
@@ -31,6 +33,21 @@ def test_favicon_svg_is_served():
     assert "BIS" in response.text
 
 
+def test_language_map_covers_all_interface_text_keys():
+    base_match = re.search(r"const baseText = \{(.*?)\n    \};", INDEX_HTML, re.S)
+    assert base_match is not None
+
+    base_keys = set(re.findall(r"\n\s{6}([A-Za-z0-9_]+):", base_match.group(1)))
+    assert base_keys
+
+    for language in ["hi", "hinglish", "bn", "ta", "te", "mr", "gu", "kn", "ml", "pa", "ur"]:
+        language_keys = set()
+        for block in re.finditer(rf"\n\s{{6}}{language}: \{{(.*?)\n\s{{6}}\}}", INDEX_HTML, re.S):
+            language_keys.update(re.findall(r"\n\s{8}([A-Za-z0-9_]+):", block.group(1)))
+
+        assert base_keys - language_keys == set(), language
+
+
 def test_multilingual_pencil_queries_return_verified_external_standards():
     queries = [
         ("en", "we are making graphite lead pencils"),
@@ -58,3 +75,28 @@ def test_multilingual_pencil_queries_return_verified_external_standards():
             "IS 1375:2021",
             "IS 2079:2022",
         ], language
+
+
+def test_edible_oil_queries_return_relevant_oil_standards_with_links():
+    queries = [
+        ("en", "we make edible oil"),
+        ("hi", "\u0939\u092e \u0916\u093e\u0926\u094d\u092f \u0924\u0947\u0932 \u092c\u0928\u093e\u0924\u0947 \u0939\u0948\u0902"),
+        ("hinglish", "hum khane ka tel banate hain"),
+        ("ta", "\u0ba8\u0bbe\u0b99\u0bcd\u0b95\u0bb3\u0bcd \u0b89\u0ba3\u0bb5\u0bc1 \u0b8e\u0ba3\u0bcd\u0ba3\u0bc6\u0baf\u0bcd \u0ba4\u0baf\u0bbe\u0bb0\u0bbf\u0b95\u0bcd\u0b95\u0bbf\u0bb1\u0bcb\u0bae\u0bcd"),
+    ]
+
+    for language, query in queries:
+        response = client.post("/recommend", json={"query": query, "top_k": 5, "language": language})
+        payload = response.json()
+
+        assert response.status_code == 200
+        assert payload["out_of_scope"] is True, language
+        assert payload["retrieved_standards"] == [], language
+        assert [item["code"] for item in payload["external_standards"]] == [
+            "IS 548 (Part 1/Sec 1):2021",
+            "IS 548 (Part 1/Sec 2):2021",
+            "IS 548 (Part 2):1976",
+            "IS 14349:2025",
+            "IS 14636:1998",
+        ], language
+        assert all(item["source_url"].startswith("https://") for item in payload["external_standards"])

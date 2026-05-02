@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
 from src.pipeline import BISPipeline, MAX_QUERY_CHARS
-from src.query_processor import is_out_of_scope_product
+from src.query_processor import is_edible_oil_query, is_pencil_query
 from src.retriever import normalize_standard_code
 
 
@@ -567,27 +567,24 @@ INDEX_HTML = """
       font-size: 0.92rem;
     }
 
-    .confidence {
+    .result-meta {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 10px;
       color: var(--muted);
       font-size: 0.78rem;
       font-weight: 800;
     }
 
-    .bar {
-      flex: 0 1 180px;
-      height: 7px;
-      background: #e7edf5;
-      border-radius: 999px;
-      overflow: hidden;
+    .result-meta a {
+      color: var(--gov-blue);
+      overflow-wrap: anywhere;
+      text-decoration: none;
     }
 
-    .bar span {
-      display: block;
-      height: 100%;
-      background: linear-gradient(90deg, var(--india-green), var(--gov-blue));
+    .result-meta a:hover {
+      text-decoration: underline;
     }
 
     .side-stack {
@@ -825,7 +822,7 @@ INDEX_HTML = """
         <div class="brand">
           <div class="emblem" aria-hidden="true">BIS</div>
           <div>
-            <p class="brand-title">BIS Standards Recommendation Engine</p>
+            <p class="brand-title" data-i18n="footerTitle">BIS Standards Recommendation Engine</p>
             <p class="brand-subtitle" data-i18n="brandSubtitle">Bureau of Indian Standards lookup for manufacturing enterprises</p>
           </div>
         </div>
@@ -851,9 +848,9 @@ INDEX_HTML = """
           <h2 data-i18n="serviceStatusTitle">Service status</h2>
           <p data-i18n="serviceStatusCopy">Digital assistance for standards discovery. Final compliance decisions should be verified with official BIS documents.</p>
           <div class="status-list">
-            <div class="status-item"><span class="check">OK</span><span data-i18n="statusOne">BIS catalogue records loaded</span></div>
-            <div class="status-item"><span class="check">OK</span><span data-i18n="statusTwo">Results limited to known standards or verified external guidance</span></div>
-            <div class="status-item"><span class="check">OK</span><span data-i18n="statusThree">Accessible interface with Indian language support</span></div>
+            <div class="status-item"><span class="check" data-i18n="statusOk">OK</span><span data-i18n="statusOne">BIS catalogue records loaded</span></div>
+            <div class="status-item"><span class="check" data-i18n="statusOk">OK</span><span data-i18n="statusTwo">Results limited to known standards or verified external guidance</span></div>
+            <div class="status-item"><span class="check" data-i18n="statusOk">OK</span><span data-i18n="statusThree">Accessible interface with Indian language support</span></div>
           </div>
         </aside>
       </div>
@@ -922,28 +919,28 @@ INDEX_HTML = """
       <div class="footer-links">
         <h2 data-i18n="footerBis">BIS services</h2>
         <ul>
-          <li><a href="https://www.bis.gov.in/" target="_blank" rel="noopener">BIS official website</a></li>
-          <li><a href="https://standardsbis.bsbedge.com/" target="_blank" rel="noopener">Download Indian Standards</a></li>
-          <li><a href="https://www.manakonline.in/" target="_blank" rel="noopener">Manak Online</a></li>
-          <li><a href="https://www.bis.gov.in/product-certification/product-certification-overview/?lang=en" target="_blank" rel="noopener">Product certification</a></li>
+          <li><a href="https://www.bis.gov.in/" target="_blank" rel="noopener" data-i18n="footerBisWebsite">BIS official website</a></li>
+          <li><a href="https://standardsbis.bsbedge.com/" target="_blank" rel="noopener" data-i18n="footerDownload">Download Indian Standards</a></li>
+          <li><a href="https://www.manakonline.in/" target="_blank" rel="noopener" data-i18n="footerManak">Manak Online</a></li>
+          <li><a href="https://www.bis.gov.in/product-certification/product-certification-overview/?lang=en" target="_blank" rel="noopener" data-i18n="footerCertification">Product certification</a></li>
         </ul>
       </div>
       <div class="footer-links">
         <h2 data-i18n="footerGov">Government links</h2>
         <ul>
-          <li><a href="https://www.india.gov.in/" target="_blank" rel="noopener">National Portal of India</a></li>
-          <li><a href="https://consumeraffairs.gov.in/" target="_blank" rel="noopener">Department of Consumer Affairs</a></li>
-          <li><a href="https://consumerhelpline.gov.in/" target="_blank" rel="noopener">National Consumer Helpline</a></li>
-          <li><a href="https://www.ux4g.gov.in/design-system.php" target="_blank" rel="noopener">UX4G Design System</a></li>
+          <li><a href="https://www.india.gov.in/" target="_blank" rel="noopener" data-i18n="footerIndiaPortal">National Portal of India</a></li>
+          <li><a href="https://consumeraffairs.gov.in/" target="_blank" rel="noopener" data-i18n="footerConsumerAffairs">Department of Consumer Affairs</a></li>
+          <li><a href="https://consumerhelpline.gov.in/" target="_blank" rel="noopener" data-i18n="footerConsumerHelpline">National Consumer Helpline</a></li>
+          <li><a href="https://www.ux4g.gov.in/design-system.php" target="_blank" rel="noopener" data-i18n="footerUx4g">UX4G Design System</a></li>
         </ul>
       </div>
       <div class="footer-links">
         <h2 data-i18n="footerService">Service access</h2>
         <ul>
-          <li><a href="/api/status">Service status</a></li>
-          <li><a href="/health">Health endpoint</a></li>
-          <li><a href="/docs">Developer API</a></li>
-          <li><a href="#search">Search standards</a></li>
+          <li><a href="/api/status" data-i18n="footerStatus">Service status</a></li>
+          <li><a href="/health" data-i18n="footerHealth">Health endpoint</a></li>
+          <li><a href="/docs" data-i18n="footerApi">Developer API</a></li>
+          <li><a href="#search" data-i18n="footerSearch">Search standards</a></li>
         </ul>
       </div>
     </div>
@@ -973,6 +970,7 @@ INDEX_HTML = """
       heroCopy: "Enter the product name, material, grade, and intended use. This service searches available BIS catalogue records and provides relevant Indian Standards for guidance.",
       serviceStatusTitle: "Service status",
       serviceStatusCopy: "Digital assistance for standards discovery. Final compliance decisions should be verified with official BIS documents.",
+      statusOk: "OK",
       statusOne: "BIS catalogue records loaded",
       statusTwo: "Results limited to known standards or verified external guidance",
       statusThree: "Accessible interface with Indian language support",
@@ -981,6 +979,8 @@ INDEX_HTML = """
       loading: "Searching catalogue...",
       searching: "Searching",
       retrieving: "Retrieving relevant BIS standards...",
+      error: "Error",
+      recommendationFailed: "Recommendation failed",
       metricOne: "Building materials catalogue",
       metricTwo: "Relevant standard guidance",
       metricThree: "Typical search target",
@@ -988,9 +988,10 @@ INDEX_HTML = """
       ready: "Ready",
       emptyState: "Enter product details to view standards guidance.",
       noResults: "No matching standards were returned.",
-      confidence: "Confidence",
       outsideCatalog: "Outside current SP 21 catalogue",
       verifyBis: "Verify on BIS preview",
+      pencilWarning: "Graphite or black lead pencils are outside the bundled BIS SP 21 building-materials catalogue. Verify pencil-specific BIS standards such as IS 1375:2021 and IS 2079:2022.",
+      edibleOilWarning: "Edible oil is outside the bundled BIS SP 21 building-materials catalogue. Use oil and fats standards such as IS 548 and the relevant oil-type specification.",
       scopeTitle: "Catalogue scope",
       scopeCopy: "The service uses available BIS catalogue data. If a product is outside the current catalogue, it will show a verification advisory instead of unrelated standards.",
       workflowTitle: "How to use this service",
@@ -1003,6 +1004,18 @@ INDEX_HTML = """
       footerBis: "BIS services",
       footerGov: "Government links",
       footerService: "Service access",
+      footerBisWebsite: "BIS official website",
+      footerDownload: "Download Indian Standards",
+      footerManak: "Manak Online",
+      footerCertification: "Product certification",
+      footerIndiaPortal: "National Portal of India",
+      footerConsumerAffairs: "Department of Consumer Affairs",
+      footerConsumerHelpline: "National Consumer Helpline",
+      footerUx4g: "UX4G Design System",
+      footerStatus: "Service status",
+      footerHealth: "Health endpoint",
+      footerApi: "Developer API",
+      footerSearch: "Search standards",
       footer: "Digital aid for BIS standards discovery. Validate final compliance decisions with official BIS documents and competent authorities.",
       footerNote: "This application is a standards discovery aid. It is not an official BIS service.",
       footerUpdated: "Last reviewed: 02 May 2026",
@@ -1048,7 +1061,6 @@ INDEX_HTML = """
         ready: "तैयार",
         emptyState: "मानक मार्गदर्शन देखने के लिए उत्पाद विवरण दर्ज करें।",
         noResults: "कोई मिलान करने वाला मानक नहीं मिला।",
-        confidence: "विश्वास स्तर",
         outsideCatalog: "वर्तमान SP 21 कैटलॉग से बाहर",
         verifyBis: "BIS पूर्वावलोकन पर सत्यापित करें",
         scopeTitle: "कैटलॉग सीमा",
@@ -1091,7 +1103,6 @@ INDEX_HTML = """
         resultsTitle: "Relevant Indian Standards",
         emptyState: "Standards guidance dekhne ke liye product details enter karein.",
         noResults: "Matching standards nahi mile.",
-        confidence: "Confidence",
         outsideCatalog: "Current SP 21 catalogue ke bahar",
         verifyBis: "BIS preview par verify karein",
         scopeTitle: "Catalogue scope",
@@ -1295,6 +1306,674 @@ INDEX_HTML = """
       translations[lang] = { ...translations[lang], ...values };
     });
 
+    const localeCompletion = {
+      hi: {
+        statusOk: "ठीक",
+        error: "त्रुटि",
+        recommendationFailed: "अनुशंसा प्राप्त नहीं हो सकी",
+        pencilWarning: "ग्रेफाइट या ब्लैक लेड पेंसिल वर्तमान BIS SP 21 निर्माण-सामग्री कैटलॉग से बाहर हैं। पेंसिल से संबंधित IS 1375:2021 और IS 2079:2022 जैसे BIS मानक सत्यापित करें।",
+        edibleOilWarning: "खाद्य तेल वर्तमान BIS SP 21 निर्माण-सामग्री कैटलॉग से बाहर है। तेल और वसा से संबंधित IS 548 और संबंधित तेल-प्रकार विनिर्देश देखें।",
+        footerTitle: "BIS मानक अनुशंसा इंजन",
+        footerBis: "BIS सेवाएं",
+        footerGov: "सरकारी लिंक",
+        footerService: "सेवा पहुंच",
+        footerBisWebsite: "BIS आधिकारिक वेबसाइट",
+        footerDownload: "भारतीय मानक डाउनलोड करें",
+        footerManak: "मानक ऑनलाइन",
+        footerCertification: "उत्पाद प्रमाणन",
+        footerIndiaPortal: "भारत का राष्ट्रीय पोर्टल",
+        footerConsumerAffairs: "उपभोक्ता मामले विभाग",
+        footerConsumerHelpline: "राष्ट्रीय उपभोक्ता हेल्पलाइन",
+        footerUx4g: "UX4G डिजाइन प्रणाली",
+        footerStatus: "सेवा स्थिति",
+        footerHealth: "स्वास्थ्य एंडपॉइंट",
+        footerApi: "डेवलपर API",
+        footerSearch: "मानक खोजें",
+        footerNote: "यह एप्लिकेशन मानक खोज के लिए सहायता है। यह आधिकारिक BIS सेवा नहीं है।",
+        footerUpdated: "अंतिम समीक्षा: 02 मई 2026",
+        footerTop: "खोज पर वापस जाएं",
+        sampleAggregates: "संरचनात्मक कंक्रीट के लिए प्राकृतिक स्रोतों से मोटे और महीन एग्रीगेट",
+        samplePipes: "जल मुख्य लाइनों के लिए सुदृढ़ीकरण सहित और बिना सुदृढ़ीकरण के प्रीकास्ट कंक्रीट पाइप",
+        sampleWhiteCement: "वास्तु और सजावटी उपयोग के लिए सफेद पोर्टलैंड सीमेंट"
+      },
+      hinglish: {
+        contrast: "Contrast mode",
+        navSearch: "Khoj",
+        navResults: "Parinam",
+        navStatus: "Seva status",
+        navDocs: "Developer API dastavez",
+        serviceStatusTitle: "Seva status",
+        statusOk: "Theek",
+        statusOne: "BIS catalogue records loaded hain",
+        statusTwo: "Results known standards ya verified external guidance tak limited hain",
+        statusThree: "Indian language support ke saath accessible interface",
+        loading: "Catalogue search ho raha hai...",
+        searching: "Search ho raha hai",
+        retrieving: "Relevant BIS standards laaye ja rahe hain...",
+        error: "Truti",
+        recommendationFailed: "Recommendation nahi mil payi",
+        metricOne: "Building materials catalogue",
+        metricTwo: "Relevant standard guidance",
+        metricThree: "Typical search target",
+        resultsTitle: "Relevant Bharatiya Standards",
+        ready: "Taiyar",
+        verifyBis: "BIS preview par verify karein",
+        pencilWarning: "Graphite ya black lead pencils bundled BIS SP 21 building-materials catalogue ke bahar hain. Pencil-specific BIS standards jaise IS 1375:2021 aur IS 2079:2022 verify karein.",
+        edibleOilWarning: "Edible oil bundled BIS SP 21 building-materials catalogue ke bahar hai. Oils and fats ke liye IS 548 aur relevant oil-type specification dekhein.",
+        footerTitle: "BIS Standards Recommendation Engine",
+        footerBis: "BIS sevayen",
+        footerGov: "Sarkari links",
+        footerService: "Seva access",
+        footerBisWebsite: "BIS official website",
+        footerDownload: "Indian Standards download karein",
+        footerManak: "Manak Online",
+        footerCertification: "Product certification",
+        footerIndiaPortal: "National Portal of India",
+        footerConsumerAffairs: "Department of Consumer Affairs",
+        footerConsumerHelpline: "National Consumer Helpline",
+        footerUx4g: "UX4G Design System",
+        footerStatus: "Seva status",
+        footerHealth: "Health endpoint",
+        footerApi: "Developer API",
+        footerSearch: "Standards search",
+        footerNote: "Ye application standards discovery aid hai. Ye official BIS service nahi hai.",
+        footerUpdated: "Last reviewed: 02 May 2026",
+        footerTop: "Search par wapas",
+        sampleAggregates: "structural concrete ke liye natural sources se coarse aur fine aggregates",
+        samplePipes: "water mains ke liye reinforcement ke saath aur bina reinforcement ke precast concrete pipes",
+        sampleWhiteCement: "architectural aur decorative use ke liye white Portland cement"
+      },
+      bn: {
+        contrast: "কনট্রাস্ট",
+        brandSubtitle: "উৎপাদন প্রতিষ্ঠানের জন্য ভারতীয় মান ব্যুরো মান অনুসন্ধান",
+        navSearch: "অনুসন্ধান",
+        navResults: "ফলাফল",
+        navStatus: "পরিষেবার অবস্থা",
+        navDocs: "ডেভেলপার API",
+        eyebrow: "BIS ডিজিটাল পরিষেবা",
+        heroCopy: "পণ্যের নাম, উপাদান, গ্রেড এবং ব্যবহার লিখুন। এই পরিষেবা উপলব্ধ BIS ক্যাটালগ রেকর্ড অনুসন্ধান করে প্রাসঙ্গিক ভারতীয় মানের নির্দেশনা দেয়।",
+        serviceStatusTitle: "পরিষেবার অবস্থা",
+        serviceStatusCopy: "মান অনুসন্ধানের জন্য ডিজিটাল সহায়তা। চূড়ান্ত কমপ্লায়েন্স সিদ্ধান্ত সরকারি BIS নথি দিয়ে যাচাই করুন।",
+        statusOk: "ঠিক",
+        statusOne: "BIS ক্যাটালগ রেকর্ড লোড হয়েছে",
+        statusTwo: "ফলাফল পরিচিত মান বা যাচাইকৃত বাহ্যিক নির্দেশনায় সীমিত",
+        statusThree: "ভারতীয় ভাষা সহায়তাসহ প্রবেশযোগ্য ইন্টারফেস",
+        loading: "ক্যাটালগ অনুসন্ধান চলছে...",
+        searching: "অনুসন্ধান চলছে",
+        retrieving: "প্রাসঙ্গিক BIS মান আনা হচ্ছে...",
+        error: "ত্রুটি",
+        recommendationFailed: "সুপারিশ পাওয়া যায়নি",
+        metricOne: "নির্মাণ সামগ্রী ক্যাটালগ",
+        metricTwo: "প্রাসঙ্গিক মান নির্দেশনা",
+        metricThree: "সাধারণ অনুসন্ধান লক্ষ্য",
+        ready: "প্রস্তুত",
+        noResults: "কোনো মিল থাকা মান পাওয়া যায়নি।",
+        outsideCatalog: "বর্তমান SP 21 ক্যাটালগের বাইরে",
+        verifyBis: "BIS প্রিভিউতে যাচাই করুন",
+        pencilWarning: "গ্রাফাইট বা ব্ল্যাক লেড পেন্সিল bundled BIS SP 21 নির্মাণ-সামগ্রী ক্যাটালগের বাইরে। IS 1375:2021 এবং IS 2079:2022-এর মতো পেন্সিল-নির্দিষ্ট BIS মান যাচাই করুন।",
+        edibleOilWarning: "ভোজ্য তেল bundled BIS SP 21 নির্মাণ-সামগ্রী ক্যাটালগের বাইরে। তেল ও চর্বির জন্য IS 548 এবং সংশ্লিষ্ট তেল-প্রকার স্পেসিফিকেশন দেখুন।",
+        scopeTitle: "ক্যাটালগের সীমা",
+        scopeCopy: "পরিষেবাটি উপলব্ধ BIS ক্যাটালগ ডেটা ব্যবহার করে। পণ্য বর্তমান ক্যাটালগের বাইরে হলে এটি অপ্রাসঙ্গিক মান দেখানোর বদলে যাচাই নির্দেশনা দেখায়।",
+        workflowTitle: "এই পরিষেবা কীভাবে ব্যবহার করবেন",
+        stepOne: "পণ্য, উপাদান, গ্রেড এবং ব্যবহার লিখুন।",
+        stepTwo: "প্রাসঙ্গিক IS কোড এবং ক্যাটালগ কারণ পর্যালোচনা করুন।",
+        stepThree: "সার্টিফিকেশন পদক্ষেপের আগে সরকারি BIS পোর্টালে প্রয়োজনীয়তা যাচাই করুন।",
+        advisoryTitle: "গুরুত্বপূর্ণ পরামর্শ",
+        advisoryCopy: "এই ডিজিটাল পরিষেবা মান অনুসন্ধানে সহায়তা করে। এটি সরকারি BIS মান, সার্টিফিকেশন নিয়ম, পরীক্ষা প্রয়োজনীয়তা বা বিশেষজ্ঞ মূল্যায়নের বিকল্প নয়।",
+        footerTitle: "BIS মান সুপারিশ ইঞ্জিন",
+        footerBis: "BIS পরিষেবা",
+        footerGov: "সরকারি লিঙ্ক",
+        footerService: "পরিষেবা প্রবেশ",
+        footerBisWebsite: "BIS সরকারি ওয়েবসাইট",
+        footerDownload: "ভারতীয় মান ডাউনলোড করুন",
+        footerManak: "মানক অনলাইন",
+        footerCertification: "পণ্য সার্টিফিকেশন",
+        footerIndiaPortal: "ভারতের জাতীয় পোর্টাল",
+        footerConsumerAffairs: "ভোক্তা বিষয়ক বিভাগ",
+        footerConsumerHelpline: "জাতীয় ভোক্তা হেল্পলাইন",
+        footerUx4g: "UX4G ডিজাইন সিস্টেম",
+        footerStatus: "পরিষেবার অবস্থা",
+        footerHealth: "হেলথ এন্ডপয়েন্ট",
+        footerApi: "ডেভেলপার API",
+        footerSearch: "মান অনুসন্ধান",
+        footer: "BIS মান অনুসন্ধানের জন্য ডিজিটাল সহায়তা। চূড়ান্ত কমপ্লায়েন্স সিদ্ধান্ত সরকারি BIS নথি এবং সক্ষম কর্তৃপক্ষের সঙ্গে যাচাই করুন।",
+        footerNote: "এই অ্যাপ্লিকেশনটি মান অনুসন্ধানের সহায়ক। এটি সরকারি BIS পরিষেবা নয়।",
+        footerUpdated: "শেষ পর্যালোচনা: 02 মে 2026",
+        footerTop: "অনুসন্ধানে ফিরুন",
+        sampleDefault: "আমরা সাধারণ ভবন নির্মাণের জন্য 33 গ্রেড অর্ডিনারি পোর্টল্যান্ড সিমেন্ট উৎপাদন করি। কোন ভারতীয় মান প্রযোজ্য?",
+        sampleAggregatesLabel: "এগ্রিগেট",
+        sampleAggregates: "স্ট্রাকচারাল কংক্রিটের জন্য প্রাকৃতিক উৎসের মোটা ও সূক্ষ্ম এগ্রিগেট",
+        samplePipesLabel: "কংক্রিট পাইপ",
+        samplePipes: "জল মেইনের জন্য রিইনফোর্সমেন্টসহ এবং ছাড়া প্রিকাস্ট কংক্রিট পাইপ",
+        sampleWhiteCementLabel: "সাদা সিমেন্ট",
+        sampleWhiteCement: "স্থাপত্য ও সজ্জার কাজে সাদা পোর্টল্যান্ড সিমেন্ট"
+      },
+      ta: {
+        contrast: "மாறுபாடு",
+        brandSubtitle: "உற்பத்தி நிறுவனங்களுக்கான இந்திய தரநிலைகள் பணியக தர தேடல்",
+        navSearch: "தேடல்",
+        navResults: "முடிவுகள்",
+        navStatus: "சேவை நிலை",
+        navDocs: "டெவலப்பர் API",
+        eyebrow: "BIS டிஜிட்டல் சேவை",
+        heroCopy: "தயாரிப்பு பெயர், பொருள், தரம் மற்றும் பயன்பாட்டை உள்ளிடவும். இந்த சேவை கிடைக்கும் BIS பட்டியல் பதிவுகளைத் தேடி தொடர்புடைய இந்திய தரங்களை வழிகாட்டலாக வழங்குகிறது.",
+        serviceStatusTitle: "சேவை நிலை",
+        serviceStatusCopy: "தர தேடலுக்கான டிஜிட்டல் உதவி. இறுதி இணக்கத் தீர்மானங்களை அதிகாரப்பூர்வ BIS ஆவணங்களுடன் சரிபார்க்கவும்.",
+        statusOk: "சரி",
+        statusOne: "BIS பட்டியல் பதிவுகள் ஏற்றப்பட்டன",
+        statusTwo: "முடிவுகள் அறியப்பட்ட தரங்கள் அல்லது சரிபார்க்கப்பட்ட வெளிப்புற வழிகாட்டல்களுக்கு மட்டுப்படுத்தப்பட்டவை",
+        statusThree: "இந்திய மொழி ஆதரவுடன் அணுகக்கூடிய இடைமுகம்",
+        loading: "பட்டியல் தேடப்படுகிறது...",
+        searching: "தேடப்படுகிறது",
+        retrieving: "தொடர்புடைய BIS தரங்கள் பெறப்படுகின்றன...",
+        error: "பிழை",
+        recommendationFailed: "பரிந்துரையை பெற முடியவில்லை",
+        metricOne: "கட்டுமானப் பொருள் பட்டியல்",
+        metricTwo: "தொடர்புடைய தர வழிகாட்டல்",
+        metricThree: "வழக்கமான தேடல் இலக்கு",
+        ready: "தயார்",
+        noResults: "பொருந்தும் தரங்கள் எதுவும் கிடைக்கவில்லை.",
+        outsideCatalog: "தற்போதைய SP 21 பட்டியலுக்கு வெளியே",
+        verifyBis: "BIS முன்னோட்டத்தில் சரிபார்க்கவும்",
+        pencilWarning: "கிராஃபைட் அல்லது கருப்பு லீட் பென்சில்கள் bundled BIS SP 21 கட்டுமானப் பொருள் பட்டியலில் இல்லை. IS 1375:2021 மற்றும் IS 2079:2022 போன்ற பென்சில் சார்ந்த BIS தரங்களை சரிபார்க்கவும்.",
+        edibleOilWarning: "உணவு எண்ணெய் bundled BIS SP 21 கட்டுமானப் பொருள் பட்டியலில் இல்லை. எண்ணெய்கள் மற்றும் கொழுப்புகளுக்கு IS 548 மற்றும் தொடர்புடைய எண்ணெய் வகை விவரக்குறிப்பைப் பார்க்கவும்.",
+        scopeTitle: "பட்டியல் வரம்பு",
+        scopeCopy: "இந்த சேவை கிடைக்கும் BIS பட்டியல் தரவைப் பயன்படுத்துகிறது. தயாரிப்பு தற்போதைய பட்டியலுக்கு வெளியே இருந்தால் தொடர்பற்ற தரங்களை காட்டாமல் சரிபார்ப்பு அறிவுரையை காட்டும்.",
+        workflowTitle: "இந்த சேவையைப் பயன்படுத்துவது எப்படி",
+        stepOne: "தயாரிப்பு, பொருள், தரம் மற்றும் பயன்பாட்டை உள்ளிடவும்.",
+        stepTwo: "தொடர்புடைய IS குறியீடுகள் மற்றும் பட்டியல் காரணத்தைப் பரிசீலிக்கவும்.",
+        stepThree: "சான்றிதழ் நடவடிக்கைக்கு முன் அதிகாரப்பூர்வ BIS தளத்தில் தேவைகளை சரிபார்க்கவும்.",
+        advisoryTitle: "முக்கிய அறிவுரை",
+        advisoryCopy: "இந்த டிஜிட்டல் சேவை தர தேடலுக்கு உதவுகிறது. இது அதிகாரப்பூர்வ BIS தரங்கள், சான்றிதழ் விதிகள், சோதனை தேவைகள் அல்லது நிபுணர் மதிப்பீட்டிற்கு மாற்றாகாது.",
+        footerTitle: "BIS தர பரிந்துரை இயந்திரம்",
+        footerBis: "BIS சேவைகள்",
+        footerGov: "அரசு இணைப்புகள்",
+        footerService: "சேவை அணுகல்",
+        footerBisWebsite: "BIS அதிகாரப்பூர்வ இணையதளம்",
+        footerDownload: "இந்திய தரங்களைப் பதிவிறக்கவும்",
+        footerManak: "மானக் ஆன்லைன்",
+        footerCertification: "தயாரிப்பு சான்றிதழ்",
+        footerIndiaPortal: "இந்திய தேசிய தளம்",
+        footerConsumerAffairs: "நுகர்வோர் விவகாரத் துறை",
+        footerConsumerHelpline: "தேசிய நுகர்வோர் உதவி எண்",
+        footerUx4g: "UX4G வடிவமைப்பு அமைப்பு",
+        footerStatus: "சேவை நிலை",
+        footerHealth: "சுகாதார எண்ட்பாயிண்ட்",
+        footerApi: "டெவலப்பர் API",
+        footerSearch: "தரங்களைத் தேடல்",
+        footer: "BIS தர தேடலுக்கான டிஜிட்டல் உதவி. இறுதி இணக்கத் தீர்மானங்களை அதிகாரப்பூர்வ BIS ஆவணங்கள் மற்றும் தகுதியான அதிகாரிகளுடன் சரிபார்க்கவும்.",
+        footerNote: "இந்த பயன்பாடு தர தேடலுக்கான உதவி. இது அதிகாரப்பூர்வ BIS சேவை அல்ல.",
+        footerUpdated: "கடைசி மதிப்பாய்வு: 02 மே 2026",
+        footerTop: "தேடலுக்கு திரும்பு",
+        sampleDefault: "பொது கட்டிட கட்டுமானத்திற்கு 33 தர Ordinary Portland Cement தயாரிக்கிறோம். எந்த இந்திய தரம் பொருந்தும்?",
+        sampleAggregatesLabel: "அக்ரிகேட்கள்",
+        sampleAggregates: "கட்டமைப்பு கான்கிரீட்டிற்கு இயற்கை மூலங்களில் இருந்து பெறப்படும் பெரிய மற்றும் சிறிய அக்ரிகேட்கள்",
+        samplePipesLabel: "கான்கிரீட் குழாய்கள்",
+        samplePipes: "நீர் மெயின்களுக்கு உறுதிப்படுத்தலுடன் மற்றும் இன்றி முன் தயாரிக்கப்பட்ட கான்கிரீட் குழாய்கள்",
+        sampleWhiteCementLabel: "வெள்ளை சிமெண்டு",
+        sampleWhiteCement: "கட்டிடக்கலை மற்றும் அலங்கார பயன்பாட்டிற்கான வெள்ளை போர்ட்லண்ட் சிமெண்டு"
+      },
+      te: {
+        contrast: "కాంట్రాస్ట్",
+        brandSubtitle: "తయారీ సంస్థల కోసం భారతీయ ప్రమాణాల బ్యూరో ప్రమాణాల శోధన",
+        navSearch: "శోధన",
+        navResults: "ఫలితాలు",
+        navStatus: "సేవ స్థితి",
+        navDocs: "డెవలపర్ API",
+        eyebrow: "BIS డిజిటల్ సేవ",
+        heroCopy: "ఉత్పత్తి పేరు, పదార్థం, గ్రేడ్ మరియు వినియోగాన్ని నమోదు చేయండి. ఈ సేవ అందుబాటులో ఉన్న BIS కాటలాగ్ రికార్డులను శోధించి సంబంధిత భారతీయ ప్రమాణాల మార్గదర్శకాన్ని అందిస్తుంది.",
+        serviceStatusTitle: "సేవ స్థితి",
+        serviceStatusCopy: "ప్రమాణాల శోధనకు డిజిటల్ సహాయం. తుది అనుసరణ నిర్ణయాలను అధికారిక BIS పత్రాలతో ధృవీకరించండి.",
+        statusOk: "సరే",
+        statusOne: "BIS కాటలాగ్ రికార్డులు లోడ్ అయ్యాయి",
+        statusTwo: "ఫలితాలు తెలిసిన ప్రమాణాలు లేదా ధృవీకరించిన బాహ్య మార్గదర్శకానికే పరిమితం",
+        statusThree: "భారతీయ భాషా మద్దతుతో సులభంగా ఉపయోగించగల ఇంటర్‌ఫేస్",
+        loading: "కాటలాగ్ శోధిస్తోంది...",
+        searching: "శోధిస్తోంది",
+        retrieving: "సంబంధిత BIS ప్రమాణాలు పొందుతోంది...",
+        error: "లోపం",
+        recommendationFailed: "సిఫార్సు పొందలేకపోయింది",
+        metricOne: "నిర్మాణ సామగ్రి కాటలాగ్",
+        metricTwo: "సంబంధిత ప్రమాణ మార్గదర్శకం",
+        metricThree: "సాధారణ శోధన లక్ష్యం",
+        ready: "సిద్ధం",
+        noResults: "సరిపోలే ప్రమాణాలు లభించలేదు.",
+        outsideCatalog: "ప్రస్తుత SP 21 కాటలాగ్ వెలుపల",
+        verifyBis: "BIS ప్రీవ్యూలో ధృవీకరించండి",
+        pencilWarning: "గ్రాఫైట్ లేదా బ్లాక్ లీడ్ పెన్సిల్స్ bundled BIS SP 21 నిర్మాణ సామగ్రి కాటలాగ్‌లో లేవు. IS 1375:2021 మరియు IS 2079:2022 వంటి పెన్సిల్‌కు సంబంధించిన BIS ప్రమాణాలను ధృవీకరించండి.",
+        edibleOilWarning: "తినే నూనె bundled BIS SP 21 నిర్మాణ సామగ్రి కాటలాగ్‌లో లేదు. నూనెలు మరియు కొవ్వులకు IS 548 మరియు సంబంధిత నూనె రకం స్పెసిఫికేషన్ చూడండి.",
+        scopeTitle: "కాటలాగ్ పరిధి",
+        scopeCopy: "ఈ సేవ అందుబాటులో ఉన్న BIS కాటలాగ్ డేటాను ఉపయోగిస్తుంది. ఉత్పత్తి ప్రస్తుత కాటలాగ్ వెలుపల ఉంటే సంబంధం లేని ప్రమాణాల బదులు ధృవీకరణ సూచన చూపుతుంది.",
+        workflowTitle: "ఈ సేవను ఎలా ఉపయోగించాలి",
+        stepOne: "ఉత్పత్తి, పదార్థం, గ్రేడ్ మరియు వినియోగాన్ని నమోదు చేయండి.",
+        stepTwo: "సంబంధిత IS కోడ్లు మరియు కాటలాగ్ కారణాన్ని సమీక్షించండి.",
+        stepThree: "సర్టిఫికేషన్ చర్యకు ముందు అధికారిక BIS పోర్టల్‌లో అవసరాలను ధృవీకరించండి.",
+        advisoryTitle: "ముఖ్య సూచన",
+        advisoryCopy: "ఈ డిజిటల్ సేవ ప్రమాణాల శోధనకు సహాయం చేస్తుంది. ఇది అధికారిక BIS ప్రమాణాలు, సర్టిఫికేషన్ నియమాలు, పరీక్ష అవసరాలు లేదా నిపుణుల అంచనాకు ప్రత్యామ్నాయం కాదు.",
+        footerTitle: "BIS ప్రమాణాల సిఫార్సు ఇంజిన్",
+        footerBis: "BIS సేవలు",
+        footerGov: "ప్రభుత్వ లింకులు",
+        footerService: "సేవ ప్రవేశం",
+        footerBisWebsite: "BIS అధికారిక వెబ్‌సైట్",
+        footerDownload: "భారతీయ ప్రమాణాలను డౌన్‌లోడ్ చేయండి",
+        footerManak: "మానక్ ఆన్‌లైన్",
+        footerCertification: "ఉత్పత్తి ధృవీకరణ",
+        footerIndiaPortal: "భారత జాతీయ పోర్టల్",
+        footerConsumerAffairs: "వినియోగదారుల వ్యవహారాల శాఖ",
+        footerConsumerHelpline: "జాతీయ వినియోగదారుల హెల్ప్‌లైన్",
+        footerUx4g: "UX4G డిజైన్ సిస్టమ్",
+        footerStatus: "సేవ స్థితి",
+        footerHealth: "హెల్త్ ఎండ్పాయింట్",
+        footerApi: "డెవలపర్ API",
+        footerSearch: "ప్రమాణాల శోధన",
+        footer: "BIS ప్రమాణాల శోధనకు డిజిటల్ సహాయం. తుది అనుసరణ నిర్ణయాలను అధికారిక BIS పత్రాలు మరియు సమర్థ అధికారులతో ధృవీకరించండి.",
+        footerNote: "ఈ అప్లికేషన్ ప్రమాణాల శోధనకు సహాయకం. ఇది అధికారిక BIS సేవ కాదు.",
+        footerUpdated: "చివరి సమీక్ష: 02 మే 2026",
+        footerTop: "శోధనకు తిరిగి వెళ్లండి",
+        sampleDefault: "మేము సాధారణ భవన నిర్మాణానికి 33 గ్రేడ్ Ordinary Portland Cement తయారు చేస్తున్నాము. ఏ భారతీయ ప్రమాణం వర్తిస్తుంది?",
+        sampleAggregatesLabel: "అగ్రిగేట్లు",
+        sampleAggregates: "నిర్మాణ కాంక్రీటుకు సహజ మూలాల నుంచి మోటు మరియు సన్నని అగ్రిగేట్లు",
+        samplePipesLabel: "కాంక్రీట్ పైపులు",
+        samplePipes: "నీటి మెయిన్ల కోసం బలపరచిన మరియు బలపరచని ప్రీకాస్ట్ కాంక్రీట్ పైపులు",
+        sampleWhiteCementLabel: "వైట్ సిమెంట్",
+        sampleWhiteCement: "ఆర్కిటెక్చరల్ మరియు అలంకార వినియోగానికి వైట్ పోర్ట్‌ల్యాండ్ సిమెంట్"
+      },
+      mr: {
+        contrast: "कॉन्ट्रास्ट",
+        brandSubtitle: "उत्पादन उद्योगांसाठी भारतीय मानक ब्युरो मानक शोध",
+        navSearch: "शोध",
+        navResults: "निकाल",
+        navStatus: "सेवा स्थिती",
+        navDocs: "डेव्हलपर API",
+        eyebrow: "BIS डिजिटल सेवा",
+        heroCopy: "उत्पादनाचे नाव, साहित्य, ग्रेड आणि वापर नोंदवा. ही सेवा उपलब्ध BIS कॅटलॉग नोंदी शोधून संबंधित भारतीय मानकांचे मार्गदर्शन देते.",
+        serviceStatusTitle: "सेवा स्थिती",
+        serviceStatusCopy: "मानक शोधासाठी डिजिटल सहाय्य. अंतिम अनुपालन निर्णय अधिकृत BIS दस्तऐवजांद्वारे पडताळा.",
+        statusOk: "ठीक",
+        statusOne: "BIS कॅटलॉग नोंदी लोड झाल्या",
+        statusTwo: "निकाल ज्ञात मानके किंवा पडताळलेल्या बाह्य मार्गदर्शनापुरते मर्यादित",
+        statusThree: "भारतीय भाषा समर्थनासह सुलभ इंटरफेस",
+        loading: "कॅटलॉग शोधला जात आहे...",
+        searching: "शोध सुरू आहे",
+        retrieving: "संबंधित BIS मानके मिळवत आहे...",
+        error: "त्रुटी",
+        recommendationFailed: "शिफारस मिळू शकली नाही",
+        metricOne: "बांधकाम साहित्य कॅटलॉग",
+        metricTwo: "संबंधित मानक मार्गदर्शन",
+        metricThree: "सामान्य शोध लक्ष्य",
+        ready: "तयार",
+        noResults: "जुळणारी मानके मिळाली नाहीत.",
+        outsideCatalog: "सध्याच्या SP 21 कॅटलॉगच्या बाहेर",
+        verifyBis: "BIS पूर्वावलोकनात पडताळा",
+        pencilWarning: "ग्रेफाइट किंवा ब्लॅक लीड पेन्सिली bundled BIS SP 21 बांधकाम-साहित्य कॅटलॉगच्या बाहेर आहेत. IS 1375:2021 आणि IS 2079:2022 सारखी पेन्सिल-विशिष्ट BIS मानके पडताळा.",
+        edibleOilWarning: "खाद्य तेल bundled BIS SP 21 बांधकाम-साहित्य कॅटलॉगच्या बाहेर आहे. तेल आणि चरबींसाठी IS 548 आणि संबंधित तेल-प्रकार तपशील पहा.",
+        scopeTitle: "कॅटलॉगची व्याप्ती",
+        scopeCopy: "ही सेवा उपलब्ध BIS कॅटलॉग डेटा वापरते. उत्पादन सध्याच्या कॅटलॉगच्या बाहेर असल्यास असंबंधित मानके न दाखवता पडताळणी सूचना दाखवते.",
+        workflowTitle: "ही सेवा कशी वापरावी",
+        stepOne: "उत्पादन, साहित्य, ग्रेड आणि वापर नोंदवा.",
+        stepTwo: "संबंधित IS कोड आणि कॅटलॉग कारण तपासा.",
+        stepThree: "प्रमाणन कृतीपूर्वी अधिकृत BIS पोर्टलवर आवश्यकता पडताळा.",
+        advisoryTitle: "महत्त्वाची सूचना",
+        advisoryCopy: "ही डिजिटल सेवा मानक शोधासाठी मदत करते. ती अधिकृत BIS मानके, प्रमाणन नियम, चाचणी आवश्यकता किंवा तज्ज्ञ मूल्यांकनाची जागा घेत नाही.",
+        footerTitle: "BIS मानक शिफारस इंजिन",
+        footerBis: "BIS सेवा",
+        footerGov: "शासकीय दुवे",
+        footerService: "सेवा प्रवेश",
+        footerBisWebsite: "BIS अधिकृत संकेतस्थळ",
+        footerDownload: "भारतीय मानके डाउनलोड करा",
+        footerManak: "मानक ऑनलाइन",
+        footerCertification: "उत्पादन प्रमाणन",
+        footerIndiaPortal: "भारताचे राष्ट्रीय पोर्टल",
+        footerConsumerAffairs: "ग्राहक व्यवहार विभाग",
+        footerConsumerHelpline: "राष्ट्रीय ग्राहक हेल्पलाइन",
+        footerUx4g: "UX4G डिझाइन प्रणाली",
+        footerStatus: "सेवा स्थिती",
+        footerHealth: "हेल्थ एंडपॉइंट",
+        footerApi: "डेव्हलपर API",
+        footerSearch: "मानके शोधा",
+        footer: "BIS मानक शोधासाठी डिजिटल सहाय्य. अंतिम अनुपालन निर्णय अधिकृत BIS दस्तऐवज आणि सक्षम प्राधिकरणांशी पडताळा.",
+        footerNote: "हे अॅप्लिकेशन मानक शोधण्यासाठी सहाय्यक आहे. ही अधिकृत BIS सेवा नाही.",
+        footerUpdated: "शेवटची समीक्षा: 02 मे 2026",
+        footerTop: "शोधाकडे परत जा",
+        sampleDefault: "आम्ही सामान्य इमारत बांधकामासाठी 33 ग्रेड Ordinary Portland Cement तयार करतो. कोणते भारतीय मानक लागू आहे?",
+        sampleAggregatesLabel: "एग्रीगेट",
+        sampleAggregates: "स्ट्रक्चरल कंक्रीटसाठी नैसर्गिक स्रोतांमधील जाड आणि बारीक एग्रीगेट",
+        samplePipesLabel: "कंक्रीट पाइप",
+        samplePipes: "पाणी मुख्य वाहिन्यांसाठी मजबुतीकरणासह आणि त्याशिवाय प्रीकास्ट कंक्रीट पाइप",
+        sampleWhiteCementLabel: "पांढरे सिमेंट",
+        sampleWhiteCement: "वास्तुशिल्प आणि सजावटीच्या वापरासाठी पांढरे पोर्टलँड सिमेंट"
+      },
+      gu: {
+        contrast: "કોન્ટ્રાસ્ટ",
+        brandSubtitle: "ઉત્પાદન એકમો માટે ભારતીય ધોરણ બ્યુરો ધોરણ શોધ",
+        navSearch: "શોધ",
+        navResults: "પરિણામો",
+        navStatus: "સેવા સ્થિતિ",
+        navDocs: "ડેવલપર API",
+        eyebrow: "BIS ડિજિટલ સેવા",
+        heroCopy: "ઉત્પાદનનું નામ, સામગ્રી, ગ્રેડ અને ઉપયોગ દાખલ કરો. આ સેવા ઉપલબ્ધ BIS કેટલોગ રેકોર્ડ્સ શોધીને સંબંધિત ભારતીય ધોરણ માર્ગદર્શન આપે છે.",
+        serviceStatusTitle: "સેવા સ્થિતિ",
+        serviceStatusCopy: "ધોરણ શોધ માટે ડિજિટલ સહાય. અંતિમ અનુપાલન નિર્ણયો સત્તાવાર BIS દસ્તાવેજોથી ચકાસો.",
+        statusOk: "બરાબર",
+        statusOne: "BIS કેટલોગ રેકોર્ડ્સ લોડ થયા",
+        statusTwo: "પરિણામો જાણીતા ધોરણો અથવા ચકાસેલા બાહ્ય માર્ગદર્શન સુધી મર્યાદિત",
+        statusThree: "ભારતીય ભાષા સપોર્ટ સાથે સુલભ ઇન્ટરફેસ",
+        loading: "કેટલોગ શોધાઈ રહ્યો છે...",
+        searching: "શોધાઈ રહ્યું છે",
+        retrieving: "સંબંધિત BIS ધોરણો મેળવાઈ રહ્યા છે...",
+        error: "ભૂલ",
+        recommendationFailed: "ભલામણ મળી શકી નથી",
+        metricOne: "બાંધકામ સામગ્રી કેટલોગ",
+        metricTwo: "સંબંધિત ધોરણ માર્ગદર્શન",
+        metricThree: "સામાન્ય શોધ લક્ષ્ય",
+        ready: "તૈયાર",
+        noResults: "મેળ ખાતા ધોરણો મળ્યા નથી.",
+        outsideCatalog: "વર્તમાન SP 21 કેટલોગની બહાર",
+        verifyBis: "BIS પ્રિવ્યૂમાં ચકાસો",
+        pencilWarning: "ગ્રેફાઇટ અથવા બ્લેક લીડ પેન્સિલ bundled BIS SP 21 બાંધકામ-સામગ્રી કેટલોગની બહાર છે. IS 1375:2021 અને IS 2079:2022 જેવા પેન્સિલ-વિશિષ્ટ BIS ધોરણો ચકાસો.",
+        edibleOilWarning: "ખાદ્ય તેલ bundled BIS SP 21 બાંધકામ-સામગ્રી કેટલોગની બહાર છે. તેલ અને ચરબી માટે IS 548 અને સંબંધિત તેલ-પ્રકાર સ્પેસિફિકેશન જુઓ.",
+        scopeTitle: "કેટલોગ વ્યાપ",
+        scopeCopy: "આ સેવા ઉપલબ્ધ BIS કેટલોગ ડેટાનો ઉપયોગ કરે છે. ઉત્પાદન વર્તમાન કેટલોગની બહાર હોય તો તે અસંબંધિત ધોરણો બદલે ચકાસણી સલાહ બતાવે છે.",
+        workflowTitle: "આ સેવાનો ઉપયોગ કેવી રીતે કરવો",
+        stepOne: "ઉત્પાદન, સામગ્રી, ગ્રેડ અને ઉપયોગ દાખલ કરો.",
+        stepTwo: "સંબંધિત IS કોડ અને કેટલોગ કારણની સમીક્ષા કરો.",
+        stepThree: "પ્રમાણન કાર્યવાહી પહેલાં સત્તાવાર BIS પોર્ટલ પર આવશ્યકતાઓ ચકાસો.",
+        advisoryTitle: "મહત્વપૂર્ણ સલાહ",
+        advisoryCopy: "આ ડિજિટલ સેવા ધોરણ શોધમાં મદદ કરે છે. તે સત્તાવાર BIS ધોરણો, પ્રમાણન નિયમો, પરીક્ષણ આવશ્યકતાઓ અથવા નિષ્ણાત મૂલ્યાંકનનો વિકલ્પ નથી.",
+        footerTitle: "BIS ધોરણ ભલામણ એન્જિન",
+        footerBis: "BIS સેવાઓ",
+        footerGov: "સરકારી લિંક્સ",
+        footerService: "સેવા ઍક્સેસ",
+        footerBisWebsite: "BIS સત્તાવાર વેબસાઇટ",
+        footerDownload: "ભારતીય ધોરણો ડાઉનલોડ કરો",
+        footerManak: "માનક ઑનલાઇન",
+        footerCertification: "ઉત્પાદન પ્રમાણન",
+        footerIndiaPortal: "ભારતનું રાષ્ટ્રીય પોર્ટલ",
+        footerConsumerAffairs: "ગ્રાહક બાબતો વિભાગ",
+        footerConsumerHelpline: "રાષ્ટ્રીય ગ્રાહક હેલ્પલાઇન",
+        footerUx4g: "UX4G ડિઝાઇન સિસ્ટમ",
+        footerStatus: "સેવા સ્થિતિ",
+        footerHealth: "હેલ્થ એન્ડપૉઇન્ટ",
+        footerApi: "ડેવલપર API",
+        footerSearch: "ધોરણો શોધો",
+        footer: "BIS ધોરણ શોધ માટે ડિજિટલ સહાય. અંતિમ અનુપાલન નિર્ણયો સત્તાવાર BIS દસ્તાવેજો અને સક્ષમ સત્તાધિકારીઓ સાથે ચકાસો.",
+        footerNote: "આ એપ્લિકેશન ધોરણ શોધ માટે સહાયક છે. આ સત્તાવાર BIS સેવા નથી.",
+        footerUpdated: "છેલ્લી સમીક્ષા: 02 મે 2026",
+        footerTop: "શોધ પર પાછા જાઓ",
+        sampleDefault: "અમે સામાન્ય બિલ્ડિંગ બાંધકામ માટે 33 Grade Ordinary Portland Cement બનાવીએ છીએ. કયું ભારતીય ધોરણ લાગુ પડે છે?",
+        sampleAggregatesLabel: "એગ્રીગેટ",
+        sampleAggregates: "રચનાત્મક કૉંક્રિટ માટે કુદરતી સ્ત્રોતોમાંથી મોટા અને નાના એગ્રીગેટ",
+        samplePipesLabel: "કૉંક્રિટ પાઇપ",
+        samplePipes: "વૉટર મેઇન્સ માટે મજબૂતીકરણ સાથે અને વગર પ્રીકાસ્ટ કૉંક્રિટ પાઇપ",
+        sampleWhiteCementLabel: "વ્હાઇટ સિમેન્ટ",
+        sampleWhiteCement: "આર્કિટેક્ચરલ અને ડેકોરેટિવ ઉપયોગ માટે વ્હાઇટ પોર્ટલેન્ડ સિમેન્ટ"
+      },
+      kn: {
+        contrast: "ಕಾಂಟ್ರಾಸ್ಟ್",
+        brandSubtitle: "ತಯಾರಿಕಾ ಉದ್ಯಮಗಳಿಗೆ ಭಾರತೀಯ ಮಾನದಂಡಗಳ ಬ್ಯೂರೋ ಮಾನದಂಡ ಹುಡುಕಾಟ",
+        navSearch: "ಹುಡುಕು",
+        navResults: "ಫಲಿತಾಂಶಗಳು",
+        navStatus: "ಸೇವೆಯ ಸ್ಥಿತಿ",
+        navDocs: "ಡೆವಲಪರ್ API",
+        eyebrow: "BIS ಡಿಜಿಟಲ್ ಸೇವೆ",
+        heroCopy: "ಉತ್ಪನ್ನದ ಹೆಸರು, ವಸ್ತು, ಗ್ರೇಡ್ ಮತ್ತು ಬಳಕೆಯನ್ನು ನಮೂದಿಸಿ. ಈ ಸೇವೆ ಲಭ್ಯವಿರುವ BIS ಕ್ಯಾಟಲಾಗ್ ದಾಖಲೆಗಳನ್ನು ಹುಡುಕಿ ಸಂಬಂಧಿತ ಭಾರತೀಯ ಮಾನದಂಡಗಳ ಮಾರ್ಗದರ್ಶನ ನೀಡುತ್ತದೆ.",
+        serviceStatusTitle: "ಸೇವೆಯ ಸ್ಥಿತಿ",
+        serviceStatusCopy: "ಮಾನದಂಡ ಹುಡುಕಾಟಕ್ಕೆ ಡಿಜಿಟಲ್ ಸಹಾಯ. ಅಂತಿಮ ಅನುಸರಣಾ ನಿರ್ಧಾರಗಳನ್ನು ಅಧಿಕೃತ BIS ದಾಖಲೆಗಳೊಂದಿಗೆ ಪರಿಶೀಲಿಸಿ.",
+        statusOk: "ಸರಿ",
+        statusOne: "BIS ಕ್ಯಾಟಲಾಗ್ ದಾಖಲೆಗಳು ಲೋಡ್ ಆಗಿವೆ",
+        statusTwo: "ಫಲಿತಾಂಶಗಳು ತಿಳಿದಿರುವ ಮಾನದಂಡಗಳು ಅಥವಾ ಪರಿಶೀಲಿತ ಬಾಹ್ಯ ಮಾರ್ಗದರ್ಶನಕ್ಕೆ ಮಾತ್ರ ಸೀಮಿತ",
+        statusThree: "ಭಾರತೀಯ ಭಾಷಾ ಬೆಂಬಲದೊಂದಿಗೆ ಸುಲಭ ಪ್ರವೇಶದ ಇಂಟರ್‌ಫೇಸ್",
+        loading: "ಕ್ಯಾಟಲಾಗ್ ಹುಡುಕಲಾಗುತ್ತಿದೆ...",
+        searching: "ಹುಡುಕಲಾಗುತ್ತಿದೆ",
+        retrieving: "ಸಂಬಂಧಿತ BIS ಮಾನದಂಡಗಳನ್ನು ಪಡೆಯಲಾಗುತ್ತಿದೆ...",
+        error: "ದೋಷ",
+        recommendationFailed: "ಶಿಫಾರಸು ಪಡೆಯಲಾಗಲಿಲ್ಲ",
+        metricOne: "ನಿರ್ಮಾಣ ಸಾಮಗ್ರಿ ಕ್ಯಾಟಲಾಗ್",
+        metricTwo: "ಸಂಬಂಧಿತ ಮಾನದಂಡ ಮಾರ್ಗದರ್ಶನ",
+        metricThree: "ಸಾಮಾನ್ಯ ಹುಡುಕಾಟ ಗುರಿ",
+        ready: "ಸಿದ್ಧ",
+        noResults: "ಹೊಂದುವ ಮಾನದಂಡಗಳು ಲಭ್ಯವಿಲ್ಲ.",
+        outsideCatalog: "ಪ್ರಸ್ತುತ SP 21 ಕ್ಯಾಟಲಾಗ್ ಹೊರಗೆ",
+        verifyBis: "BIS preview ನಲ್ಲಿ ಪರಿಶೀಲಿಸಿ",
+        pencilWarning: "ಗ್ರಾಫೈಟ್ ಅಥವಾ ಬ್ಲಾಕ್ ಲೀಡ್ ಪೆನ್ಸಿಲ್‌ಗಳು bundled BIS SP 21 ನಿರ್ಮಾಣ-ಸಾಮಗ್ರಿ ಕ್ಯಾಟಲಾಗ್‌ನ ಹೊರಗಿವೆ. IS 1375:2021 ಮತ್ತು IS 2079:2022 ಮುಂತಾದ ಪೆನ್ಸಿಲ್-ನಿರ್ದಿಷ್ಟ BIS ಮಾನದಂಡಗಳನ್ನು ಪರಿಶೀಲಿಸಿ.",
+        edibleOilWarning: "ಆಹಾರ ಎಣ್ಣೆ bundled BIS SP 21 ನಿರ್ಮಾಣ-ಸಾಮಗ್ರಿ ಕ್ಯಾಟಲಾಗ್‌ನ ಹೊರಗಿದೆ. ಎಣ್ಣೆ ಮತ್ತು ಕೊಬ್ಬುಗಳಿಗೆ IS 548 ಮತ್ತು ಸಂಬಂಧಿತ ಎಣ್ಣೆ-ಪ್ರಕಾರದ ವಿವರಣೆಯನ್ನು ನೋಡಿ.",
+        scopeTitle: "ಕ್ಯಾಟಲಾಗ್ ವ್ಯಾಪ್ತಿ",
+        scopeCopy: "ಈ ಸೇವೆ ಲಭ್ಯವಿರುವ BIS ಕ್ಯಾಟಲಾಗ್ ಡೇಟಾವನ್ನು ಬಳಸುತ್ತದೆ. ಉತ್ಪನ್ನ ಪ್ರಸ್ತುತ ಕ್ಯಾಟಲಾಗ್‌ನ ಹೊರಗಿದ್ದರೆ ಸಂಬಂಧವಿಲ್ಲದ ಮಾನದಂಡಗಳ ಬದಲು ಪರಿಶೀಲನಾ ಸಲಹೆಯನ್ನು ತೋರಿಸುತ್ತದೆ.",
+        workflowTitle: "ಈ ಸೇವೆಯನ್ನು ಹೇಗೆ ಬಳಸುವುದು",
+        stepOne: "ಉತ್ಪನ್ನ, ವಸ್ತು, ಗ್ರೇಡ್ ಮತ್ತು ಬಳಕೆಯನ್ನು ನಮೂದಿಸಿ.",
+        stepTwo: "ಸಂಬಂಧಿತ IS ಕೋಡ್‌ಗಳು ಮತ್ತು ಕ್ಯಾಟಲಾಗ್ ಕಾರಣವನ್ನು ಪರಿಶೀಲಿಸಿ.",
+        stepThree: "ಪ್ರಮಾಣೀಕರಣ ಕ್ರಮಕ್ಕೂ ಮೊದಲು ಅಧಿಕೃತ BIS ಪೋರ್ಟಲ್‌ನಲ್ಲಿ ಅವಶ್ಯಕತೆಗಳನ್ನು ಪರಿಶೀಲಿಸಿ.",
+        advisoryTitle: "ಮುಖ್ಯ ಸಲಹೆ",
+        advisoryCopy: "ಈ ಡಿಜಿಟಲ್ ಸೇವೆ ಮಾನದಂಡ ಹುಡುಕಾಟಕ್ಕೆ ಸಹಾಯ ಮಾಡುತ್ತದೆ. ಇದು ಅಧಿಕೃತ BIS ಮಾನದಂಡಗಳು, ಪ್ರಮಾಣೀಕರಣ ನಿಯಮಗಳು, ಪರೀಕ್ಷಾ ಅವಶ್ಯಕತೆಗಳು ಅಥವಾ ಪರಿಣಿತರ ಮೌಲ್ಯಮಾಪನಕ್ಕೆ ಪರ್ಯಾಯವಲ್ಲ.",
+        footerTitle: "BIS ಮಾನದಂಡ ಶಿಫಾರಸು ಎಂಜಿನ್",
+        footerBis: "BIS ಸೇವೆಗಳು",
+        footerGov: "ಸರ್ಕಾರಿ ಲಿಂಕ್‌ಗಳು",
+        footerService: "ಸೇವೆಯ ಪ್ರವೇಶ",
+        footerBisWebsite: "BIS ಅಧಿಕೃತ ವೆಬ್‌ಸೈಟ್",
+        footerDownload: "ಭಾರತೀಯ ಮಾನದಂಡಗಳನ್ನು ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ",
+        footerManak: "ಮಾನಕ್ ಆನ್‌ಲೈನ್",
+        footerCertification: "ಉತ್ಪನ್ನ ಪ್ರಮಾಣೀಕರಣ",
+        footerIndiaPortal: "ಭಾರತದ ರಾಷ್ಟ್ರೀಯ ಪೋರ್ಟಲ್",
+        footerConsumerAffairs: "ಗ್ರಾಹಕ ವ್ಯವಹಾರಗಳ ಇಲಾಖೆ",
+        footerConsumerHelpline: "ರಾಷ್ಟ್ರೀಯ ಗ್ರಾಹಕ ಸಹಾಯವಾಣಿ",
+        footerUx4g: "UX4G ವಿನ್ಯಾಸ ವ್ಯವಸ್ಥೆ",
+        footerStatus: "ಸೇವೆಯ ಸ್ಥಿತಿ",
+        footerHealth: "ಹೆಲ್ತ್ ಎಂಡ್ಪಾಯಿಂಟ್",
+        footerApi: "ಡೆವಲಪರ್ API",
+        footerSearch: "ಮಾನದಂಡಗಳನ್ನು ಹುಡುಕಿ",
+        footer: "BIS ಮಾನದಂಡ ಹುಡುಕಾಟಕ್ಕೆ ಡಿಜಿಟಲ್ ಸಹಾಯ. ಅಂತಿಮ ಅನುಸರಣಾ ನಿರ್ಧಾರಗಳನ್ನು ಅಧಿಕೃತ BIS ದಾಖಲೆಗಳು ಮತ್ತು ಸಮರ್ಥ ಅಧಿಕಾರಿಗಳೊಂದಿಗೆ ಪರಿಶೀಲಿಸಿ.",
+        footerNote: "ಈ ಅಪ್ಲಿಕೇಶನ್ ಮಾನದಂಡ ಹುಡುಕಾಟಕ್ಕೆ ಸಹಾಯಕ. ಇದು ಅಧಿಕೃತ BIS ಸೇವೆಯಲ್ಲ.",
+        footerUpdated: "ಕೊನೆಯ ಪರಿಶೀಲನೆ: 02 ಮೇ 2026",
+        footerTop: "ಹುಡುಕಾಟಕ್ಕೆ ಹಿಂತಿರುಗಿ",
+        sampleDefault: "ನಾವು ಸಾಮಾನ್ಯ ಕಟ್ಟಡ ನಿರ್ಮಾಣಕ್ಕೆ 33 Grade Ordinary Portland Cement ತಯಾರಿಸುತ್ತೇವೆ. ಯಾವ ಭಾರತೀಯ ಮಾನದಂಡ ಅನ್ವಯಿಸುತ್ತದೆ?",
+        sampleAggregatesLabel: "ಅಗ್ರಿಗೇಟ್‌ಗಳು",
+        sampleAggregates: "ಸಂರಚನಾ ಕಾಂಕ್ರೀಟಿಗೆ ನೈಸರ್ಗಿಕ ಮೂಲಗಳಿಂದ ದೊಡ್ಡ ಮತ್ತು ಸಣ್ಣ ಅಗ್ರಿಗೇಟ್‌ಗಳು",
+        samplePipesLabel: "ಕಾಂಕ್ರೀಟ್ ಪೈಪ್‌ಗಳು",
+        samplePipes: "ನೀರು ಮುಖ್ಯ ಮಾರ್ಗಗಳಿಗೆ ಬಲವರ್ಧನೆಯೊಂದಿಗೆ ಮತ್ತು ಇಲ್ಲದೆ ಪೂರ್ವ ತಯಾರಿತ ಕಾಂಕ್ರೀಟ್ ಪೈಪ್‌ಗಳು",
+        sampleWhiteCementLabel: "ಬಿಳಿ ಸಿಮೆಂಟ್",
+        sampleWhiteCement: "ವಾಸ್ತುಶಿಲ್ಪ ಮತ್ತು ಅಲಂಕಾರಿಕ ಬಳಕೆಗೆ ಬಿಳಿ ಪೋರ್ಟ್‌ಲ್ಯಾಂಡ್ ಸಿಮೆಂಟ್"
+      },
+      ml: {
+        contrast: "കോൺട്രാസ്റ്റ്",
+        brandSubtitle: "നിർമാണ സ്ഥാപനങ്ങൾക്കായുള്ള ഇന്ത്യൻ സ്റ്റാൻഡേർഡ്സ് ബ്യൂറോ മാനദണ്ഡ തിരച്ചിൽ",
+        navSearch: "തിരച്ചിൽ",
+        navResults: "ഫലങ്ങൾ",
+        navStatus: "സേവന നില",
+        navDocs: "ഡെവലപ്പർ API",
+        eyebrow: "BIS ഡിജിറ്റൽ സേവനം",
+        heroCopy: "ഉൽപ്പന്നത്തിന്റെ പേര്, വസ്തു, ഗ്രേഡ്, ഉപയോഗം എന്നിവ നൽകുക. ലഭ്യമായ BIS കാറ്റലോഗ് രേഖകൾ തിരഞ്ഞ് ബന്ധപ്പെട്ട ഇന്ത്യൻ സ്റ്റാൻഡേർഡുകളുടെ മാർഗ്ഗനിർദ്ദേശം ഈ സേവനം നൽകുന്നു.",
+        serviceStatusTitle: "സേവന നില",
+        serviceStatusCopy: "സ്റ്റാൻഡേർഡ് കണ്ടെത്തലിനുള്ള ഡിജിറ്റൽ സഹായം. അന്തിമ അനുസരണ തീരുമാനങ്ങൾ ഔദ്യോഗിക BIS രേഖകളിലൂടെ പരിശോധിക്കുക.",
+        statusOk: "ശരി",
+        statusOne: "BIS കാറ്റലോഗ് രേഖകൾ ലോഡ് ചെയ്തു",
+        statusTwo: "ഫലങ്ങൾ അറിയപ്പെടുന്ന സ്റ്റാൻഡേർഡുകളോ പരിശോധിച്ച പുറം മാർഗ്ഗനിർദ്ദേശമോ വരെ പരിമിതം",
+        statusThree: "ഇന്ത്യൻ ഭാഷാ പിന്തുണയുള്ള ആക്സസിബിൾ ഇന്റർഫേസ്",
+        loading: "കാറ്റലോഗ് തിരയുന്നു...",
+        searching: "തിരയുന്നു",
+        retrieving: "ബന്ധപ്പെട്ട BIS സ്റ്റാൻഡേർഡുകൾ നേടുന്നു...",
+        error: "പിശക്",
+        recommendationFailed: "ശുപാർശ ലഭിച്ചില്ല",
+        metricOne: "നിർമാണ വസ്തു കാറ്റലോഗ്",
+        metricTwo: "ബന്ധപ്പെട്ട സ്റ്റാൻഡേർഡ് മാർഗ്ഗനിർദ്ദേശം",
+        metricThree: "സാധാരണ തിരച്ചിൽ ലക്ഷ്യം",
+        ready: "തയ്യാർ",
+        noResults: "പൊരുത്തമുള്ള സ്റ്റാൻഡേർഡുകൾ ലഭിച്ചില്ല.",
+        outsideCatalog: "നിലവിലെ SP 21 കാറ്റലോഗിന് പുറത്താണ്",
+        verifyBis: "BIS preview ൽ പരിശോധിക്കുക",
+        pencilWarning: "ഗ്രാഫൈറ്റ് അല്ലെങ്കിൽ ബ്ലാക്ക് ലീഡ് പെൻസിലുകൾ bundled BIS SP 21 നിർമാണ-വസ്തു കാറ്റലോഗിന് പുറത്താണ്. IS 1375:2021, IS 2079:2022 പോലുള്ള പെൻസിൽ-നിർദ്ദിഷ്ട BIS സ്റ്റാൻഡേർഡുകൾ പരിശോധിക്കുക.",
+        edibleOilWarning: "ഭക്ഷ്യ എണ്ണ bundled BIS SP 21 നിർമാണ-വസ്തു കാറ്റലോഗിന് പുറത്താണ്. എണ്ണകൾക്കും കൊഴുപ്പുകൾക്കും IS 548യും ബന്ധപ്പെട്ട എണ്ണ-തരം സ്പെസിഫിക്കേഷനും പരിശോധിക്കുക.",
+        scopeTitle: "കാറ്റലോഗ് പരിധി",
+        scopeCopy: "ഈ സേവനം ലഭ്യമായ BIS കാറ്റലോഗ് ഡാറ്റ ഉപയോഗിക്കുന്നു. ഉൽപ്പന്നം നിലവിലെ കാറ്റലോഗിന് പുറത്താണെങ്കിൽ ബന്ധമില്ലാത്ത സ്റ്റാൻഡേർഡുകൾ കാണിക്കാതെ സ്ഥിരീകരണ ഉപദേശം കാണിക്കും.",
+        workflowTitle: "ഈ സേവനം എങ്ങനെ ഉപയോഗിക്കാം",
+        stepOne: "ഉൽപ്പന്നം, വസ്തു, ഗ്രേഡ്, ഉപയോഗം എന്നിവ നൽകുക.",
+        stepTwo: "ബന്ധപ്പെട്ട IS കോഡുകളും കാറ്റലോഗ് കാരണവും പരിശോധിക്കുക.",
+        stepThree: "സർട്ടിഫിക്കേഷൻ നടപടിക്ക് മുമ്പ് ഔദ്യോഗിക BIS പോർട്ടലിൽ ആവശ്യകതകൾ പരിശോധിക്കുക.",
+        advisoryTitle: "പ്രധാന ഉപദേശം",
+        advisoryCopy: "ഈ ഡിജിറ്റൽ സേവനം സ്റ്റാൻഡേർഡ് കണ്ടെത്തലിന് സഹായിക്കുന്നു. ഇത് ഔദ്യോഗിക BIS സ്റ്റാൻഡേർഡുകൾ, സർട്ടിഫിക്കേഷൻ നിയമങ്ങൾ, പരിശോധന ആവശ്യകതകൾ അല്ലെങ്കിൽ വിദഗ്ധ വിലയിരുത്തൽ എന്നിവയ്ക്ക് പകരമല്ല.",
+        footerTitle: "BIS സ്റ്റാൻഡേർഡ് ശുപാർശ എഞ്ചിൻ",
+        footerBis: "BIS സേവനങ്ങൾ",
+        footerGov: "സർക്കാർ ലിങ്കുകൾ",
+        footerService: "സേവന പ്രവേശനം",
+        footerBisWebsite: "BIS ഔദ്യോഗിക വെബ്‌സൈറ്റ്",
+        footerDownload: "ഇന്ത്യൻ സ്റ്റാൻഡേർഡുകൾ ഡൗൺലോഡ് ചെയ്യുക",
+        footerManak: "മാനക് ഓൺലൈൻ",
+        footerCertification: "ഉൽപ്പന്ന സർട്ടിഫിക്കേഷൻ",
+        footerIndiaPortal: "ഇന്ത്യയുടെ ദേശീയ പോർട്ടൽ",
+        footerConsumerAffairs: "ഉപഭോക്തൃ കാര്യ വകുപ്പ്",
+        footerConsumerHelpline: "ദേശീയ ഉപഭോക്തൃ ഹെൽപ്‌ലൈൻ",
+        footerUx4g: "UX4G ഡിസൈൻ സിസ്റ്റം",
+        footerStatus: "സേവന നില",
+        footerHealth: "ഹെൽത്ത് എൻഡ്പോയിന്റ്",
+        footerApi: "ഡെവലപ്പർ API",
+        footerSearch: "സ്റ്റാൻഡേർഡുകൾ തിരയുക",
+        footer: "BIS സ്റ്റാൻഡേർഡ് കണ്ടെത്തലിനുള്ള ഡിജിറ്റൽ സഹായം. അന്തിമ അനുസരണ തീരുമാനങ്ങൾ ഔദ്യോഗിക BIS രേഖകളും യോഗ്യ അധികാരികളും വഴി പരിശോധിക്കുക.",
+        footerNote: "ഈ ആപ്ലിക്കേഷൻ സ്റ്റാൻഡേർഡ് കണ്ടെത്തലിനുള്ള സഹായമാണ്. ഇത് ഔദ്യോഗിക BIS സേവനമല്ല.",
+        footerUpdated: "അവസാന അവലോകനം: 02 മേയ് 2026",
+        footerTop: "തിരച്ചിലിലേക്ക് മടങ്ങുക",
+        sampleDefault: "സാധാരണ കെട്ടിട നിർമാണത്തിനായി ഞങ്ങൾ 33 Grade Ordinary Portland Cement നിർമ്മിക്കുന്നു. ഏത് ഇന്ത്യൻ സ്റ്റാൻഡേർഡ് ബാധകമാണ്?",
+        sampleAggregatesLabel: "അഗ്രിഗേറ്റുകൾ",
+        sampleAggregates: "സ്ട്രക്ചറൽ കോൺക്രീറ്റിനായി പ്രകൃതിദത്ത ഉറവിടങ്ങളിൽ നിന്നുള്ള വലിയതും ചെറുതുമായ അഗ്രിഗേറ്റുകൾ",
+        samplePipesLabel: "കോൺക്രീറ്റ് പൈപ്പുകൾ",
+        samplePipes: "വാട്ടർ മെയിനുകൾക്കായി ബലവൽക്കരണത്തോടെയും ഇല്ലാതെയും മുൻകൂട്ടി നിർമ്മിച്ച കോൺക്രീറ്റ് പൈപ്പുകൾ",
+        sampleWhiteCementLabel: "വെളുത്ത സിമന്റ്",
+        sampleWhiteCement: "വാസ്തുവിദ്യാ, അലങ്കാര ഉപയോഗത്തിനായുള്ള വെളുത്ത പോർട്ട്‌ലാൻഡ് സിമന്റ്"
+      },
+      pa: {
+        contrast: "ਕਾਂਟ੍ਰਾਸਟ",
+        brandSubtitle: "ਨਿਰਮਾਣ ਇਕਾਈਆਂ ਲਈ ਭਾਰਤੀ ਮਿਆਰ ਬਿਊਰੋ ਮਿਆਰ ਖੋਜ",
+        navSearch: "ਖੋਜ",
+        navResults: "ਨਤੀਜੇ",
+        navStatus: "ਸੇਵਾ ਸਥਿਤੀ",
+        navDocs: "ਡਿਵੈਲਪਰ API",
+        eyebrow: "BIS ਡਿਜ਼ਿਟਲ ਸੇਵਾ",
+        heroCopy: "ਉਤਪਾਦ ਦਾ ਨਾਮ, ਸਮੱਗਰੀ, ਗ੍ਰੇਡ ਅਤੇ ਵਰਤੋਂ ਦਰਜ ਕਰੋ। ਇਹ ਸੇਵਾ ਉਪਲਬਧ BIS ਕੈਟਾਲਾਗ ਰਿਕਾਰਡ ਖੋਜ ਕੇ ਸੰਬੰਧਿਤ ਭਾਰਤੀ ਮਿਆਰਾਂ ਦੀ ਰਹਿਨੁਮਾਈ ਦਿੰਦੀ ਹੈ।",
+        serviceStatusTitle: "ਸੇਵਾ ਸਥਿਤੀ",
+        serviceStatusCopy: "ਮਿਆਰ ਖੋਜ ਲਈ ਡਿਜ਼ਿਟਲ ਸਹਾਇਤਾ। ਆਖਰੀ ਅਨੁਕੂਲਤਾ ਫੈਸਲੇ ਅਧਿਕਾਰਤ BIS ਦਸਤਾਵੇਜ਼ਾਂ ਨਾਲ ਪੱਕੇ ਕਰੋ।",
+        statusOk: "ਠੀਕ",
+        statusOne: "BIS ਕੈਟਾਲਾਗ ਰਿਕਾਰਡ ਲੋਡ ਹੋਏ",
+        statusTwo: "ਨਤੀਜੇ ਜਾਣੇ ਮਿਆਰਾਂ ਜਾਂ ਪੱਕੀ ਕੀਤੀ ਬਾਹਰੀ ਰਹਿਨੁਮਾਈ ਤੱਕ ਸੀਮਿਤ",
+        statusThree: "ਭਾਰਤੀ ਭਾਸ਼ਾ ਸਹਾਇਤਾ ਨਾਲ ਪਹੁੰਚਯੋਗ ਇੰਟਰਫੇਸ",
+        loading: "ਕੈਟਾਲਾਗ ਖੋਜਿਆ ਜਾ ਰਿਹਾ ਹੈ...",
+        searching: "ਖੋਜ ਜਾਰੀ ਹੈ",
+        retrieving: "ਸੰਬੰਧਿਤ BIS ਮਿਆਰ ਪ੍ਰਾਪਤ ਕੀਤੇ ਜਾ ਰਹੇ ਹਨ...",
+        error: "ਗਲਤੀ",
+        recommendationFailed: "ਸਿਫ਼ਾਰਸ਼ ਨਹੀਂ ਮਿਲੀ",
+        metricOne: "ਨਿਰਮਾਣ ਸਮੱਗਰੀ ਕੈਟਾਲਾਗ",
+        metricTwo: "ਸੰਬੰਧਿਤ ਮਿਆਰ ਰਹਿਨੁਮਾਈ",
+        metricThree: "ਆਮ ਖੋਜ ਟੀਚਾ",
+        ready: "ਤਿਆਰ",
+        noResults: "ਕੋਈ ਮਿਲਦਾ ਮਿਆਰ ਨਹੀਂ ਮਿਲਿਆ।",
+        outsideCatalog: "ਮੌਜੂਦਾ SP 21 ਕੈਟਾਲਾਗ ਤੋਂ ਬਾਹਰ",
+        verifyBis: "BIS ਪ੍ਰੀਵਿਊ ਵਿੱਚ ਪੱਕਾ ਕਰੋ",
+        pencilWarning: "ਗ੍ਰਾਫਾਈਟ ਜਾਂ ਬਲੈਕ ਲੀਡ ਪੈਂਸਿਲਾਂ bundled BIS SP 21 ਨਿਰਮਾਣ-ਸਮੱਗਰੀ ਕੈਟਾਲਾਗ ਤੋਂ ਬਾਹਰ ਹਨ। IS 1375:2021 ਅਤੇ IS 2079:2022 ਵਰਗੇ ਪੈਂਸਿਲ-ਖਾਸ BIS ਮਿਆਰ ਪੱਕੇ ਕਰੋ।",
+        edibleOilWarning: "ਖਾਦ ਤੇਲ bundled BIS SP 21 ਨਿਰਮਾਣ-ਸਮੱਗਰੀ ਕੈਟਾਲਾਗ ਤੋਂ ਬਾਹਰ ਹੈ। ਤੇਲ ਅਤੇ ਚਰਬੀ ਲਈ IS 548 ਅਤੇ ਸੰਬੰਧਿਤ ਤੇਲ-ਕਿਸਮ ਵਿਵਰਣ ਵੇਖੋ।",
+        scopeTitle: "ਕੈਟਾਲਾਗ ਦਾਇਰਾ",
+        scopeCopy: "ਇਹ ਸੇਵਾ ਉਪਲਬਧ BIS ਕੈਟਾਲਾਗ ਡਾਟਾ ਵਰਤਦੀ ਹੈ। ਜੇ ਉਤਪਾਦ ਮੌਜੂਦਾ ਕੈਟਾਲਾਗ ਤੋਂ ਬਾਹਰ ਹੈ ਤਾਂ ਇਹ ਅਸੰਬੰਧਤ ਮਿਆਰਾਂ ਦੀ ਥਾਂ ਜਾਂਚ ਸਲਾਹ ਦਿਖਾਉਂਦੀ ਹੈ।",
+        workflowTitle: "ਇਹ ਸੇਵਾ ਕਿਵੇਂ ਵਰਤਣੀ ਹੈ",
+        stepOne: "ਉਤਪਾਦ, ਸਮੱਗਰੀ, ਗ੍ਰੇਡ ਅਤੇ ਵਰਤੋਂ ਦਰਜ ਕਰੋ।",
+        stepTwo: "ਸੰਬੰਧਿਤ IS ਕੋਡ ਅਤੇ ਕੈਟਾਲਾਗ ਕਾਰਣ ਵੇਖੋ।",
+        stepThree: "ਸਰਟੀਫਿਕੇਸ਼ਨ ਕਾਰਵਾਈ ਤੋਂ ਪਹਿਲਾਂ ਅਧਿਕਾਰਤ BIS ਪੋਰਟਲ ਤੇ ਲੋੜਾਂ ਪੱਕੀਆਂ ਕਰੋ।",
+        advisoryTitle: "ਮਹੱਤਵਪੂਰਨ ਸਲਾਹ",
+        advisoryCopy: "ਇਹ ਡਿਜ਼ਿਟਲ ਸੇਵਾ ਮਿਆਰ ਖੋਜ ਵਿੱਚ ਸਹਾਇਤਾ ਕਰਦੀ ਹੈ। ਇਹ ਅਧਿਕਾਰਤ BIS ਮਿਆਰਾਂ, ਸਰਟੀਫਿਕੇਸ਼ਨ ਨਿਯਮਾਂ, ਟੈਸਟ ਲੋੜਾਂ ਜਾਂ ਮਾਹਰ ਅੰਦਾਜ਼ੇ ਦਾ ਬਦਲ ਨਹੀਂ ਹੈ।",
+        footerTitle: "BIS ਮਿਆਰ ਸਿਫ਼ਾਰਸ਼ ਇੰਜਨ",
+        footerBis: "BIS ਸੇਵਾਵਾਂ",
+        footerGov: "ਸਰਕਾਰੀ ਲਿੰਕ",
+        footerService: "ਸੇਵਾ ਪਹੁੰਚ",
+        footerBisWebsite: "BIS ਅਧਿਕਾਰਤ ਵੈੱਬਸਾਈਟ",
+        footerDownload: "ਭਾਰਤੀ ਮਿਆਰ ਡਾਊਨਲੋਡ ਕਰੋ",
+        footerManak: "ਮਾਨਕ ਆਨਲਾਈਨ",
+        footerCertification: "ਉਤਪਾਦ ਸਰਟੀਫਿਕੇਸ਼ਨ",
+        footerIndiaPortal: "ਭਾਰਤ ਦਾ ਰਾਸ਼ਟਰੀ ਪੋਰਟਲ",
+        footerConsumerAffairs: "ਉਪਭੋਗਤਾ ਮਾਮਲੇ ਵਿਭਾਗ",
+        footerConsumerHelpline: "ਰਾਸ਼ਟਰੀ ਉਪਭੋਗਤਾ ਹੈਲਪਲਾਈਨ",
+        footerUx4g: "UX4G ਡਿਜ਼ਾਈਨ ਸਿਸਟਮ",
+        footerStatus: "ਸੇਵਾ ਸਥਿਤੀ",
+        footerHealth: "ਹੈਲਥ ਐਂਡਪੌਇੰਟ",
+        footerApi: "ਡਿਵੈਲਪਰ API",
+        footerSearch: "ਮਿਆਰ ਖੋਜੋ",
+        footer: "BIS ਮਿਆਰ ਖੋਜ ਲਈ ਡਿਜ਼ਿਟਲ ਸਹਾਇਤਾ। ਆਖਰੀ ਅਨੁਕੂਲਤਾ ਫੈਸਲੇ ਅਧਿਕਾਰਤ BIS ਦਸਤਾਵੇਜ਼ਾਂ ਅਤੇ ਯੋਗ ਅਧਿਕਾਰੀਆਂ ਨਾਲ ਪੱਕੇ ਕਰੋ।",
+        footerNote: "ਇਹ ਐਪਲੀਕੇਸ਼ਨ ਮਿਆਰ ਖੋਜ ਲਈ ਸਹਾਇਕ ਹੈ। ਇਹ ਅਧਿਕਾਰਤ BIS ਸੇਵਾ ਨਹੀਂ ਹੈ।",
+        footerUpdated: "ਆਖਰੀ ਸਮੀਖਿਆ: 02 ਮਈ 2026",
+        footerTop: "ਖੋਜ ਵੱਲ ਵਾਪਸ",
+        sampleDefault: "ਅਸੀਂ ਆਮ ਇਮਾਰਤ ਨਿਰਮਾਣ ਲਈ 33 Grade Ordinary Portland Cement ਬਣਾਉਂਦੇ ਹਾਂ। ਕਿਹੜਾ ਭਾਰਤੀ ਮਿਆਰ ਲਾਗੂ ਹੈ?",
+        sampleAggregatesLabel: "ਐਗਰੀਗੇਟ",
+        sampleAggregates: "ਸਟਰੱਕਚਰਲ ਕੌਂਕਰੀਟ ਲਈ ਕੁਦਰਤੀ ਸਰੋਤਾਂ ਤੋਂ ਮੋਟੇ ਅਤੇ ਬਰੀਕ ਐਗਰੀਗੇਟ",
+        samplePipesLabel: "ਕੌਂਕਰੀਟ ਪਾਈਪ",
+        samplePipes: "ਵਾਟਰ ਮੇਨ ਲਈ ਰੀਇਨਫੋਰਸਮੈਂਟ ਨਾਲ ਅਤੇ ਬਿਨਾਂ ਪ੍ਰੀਕਾਸਟ ਕੌਂਕਰੀਟ ਪਾਈਪ",
+        sampleWhiteCementLabel: "ਵਾਈਟ ਸਿਮੈਂਟ",
+        sampleWhiteCement: "ਆਰਕੀਟੈਕਚਰਲ ਅਤੇ ਸਜਾਵਟੀ ਵਰਤੋਂ ਲਈ ਵਾਈਟ ਪੋਰਟਲੈਂਡ ਸਿਮੈਂਟ"
+      },
+      ur: {
+        contrast: "کنٹراسٹ",
+        brandSubtitle: "مینوفیکچرنگ اداروں کے لیے بھارتی معیارات بیورو کی تلاش",
+        navSearch: "تلاش",
+        navResults: "نتائج",
+        navStatus: "سروس کی حالت",
+        navDocs: "ڈویلپر API",
+        eyebrow: "BIS ڈیجیٹل سروس",
+        heroCopy: "مصنوعات کا نام، مواد، گریڈ اور استعمال درج کریں۔ یہ سروس دستیاب BIS کیٹلاگ ریکارڈز تلاش کر کے متعلقہ بھارتی معیارات کی رہنمائی دیتی ہے۔",
+        serviceStatusTitle: "سروس کی حالت",
+        serviceStatusCopy: "معیارات کی تلاش کے لیے ڈیجیٹل معاونت۔ حتمی تعمیل کے فیصلے سرکاری BIS دستاویزات سے تصدیق کریں۔",
+        statusOk: "ٹھیک",
+        statusOne: "BIS کیٹلاگ ریکارڈز لوڈ ہو گئے",
+        statusTwo: "نتائج معلوم معیارات یا تصدیق شدہ بیرونی رہنمائی تک محدود ہیں",
+        statusThree: "بھارتی زبانوں کی مدد کے ساتھ قابل رسائی انٹرفیس",
+        loading: "کیٹلاگ تلاش ہو رہا ہے...",
+        searching: "تلاش جاری ہے",
+        retrieving: "متعلقہ BIS معیارات حاصل ہو رہے ہیں...",
+        error: "خرابی",
+        recommendationFailed: "سفارش حاصل نہیں ہو سکی",
+        metricOne: "تعمیراتی مواد کیٹلاگ",
+        metricTwo: "متعلقہ معیار رہنمائی",
+        metricThree: "عام تلاش کا ہدف",
+        ready: "تیار",
+        noResults: "کوئی مماثل معیار نہیں ملا۔",
+        outsideCatalog: "موجودہ SP 21 کیٹلاگ سے باہر",
+        verifyBis: "BIS پری ویو میں تصدیق کریں",
+        pencilWarning: "گریفائٹ یا بلیک لیڈ پنسلیں bundled BIS SP 21 تعمیراتی مواد کیٹلاگ سے باہر ہیں۔ IS 1375:2021 اور IS 2079:2022 جیسے پنسل مخصوص BIS معیارات کی تصدیق کریں۔",
+        edibleOilWarning: "خوردنی تیل bundled BIS SP 21 تعمیراتی مواد کیٹلاگ سے باہر ہے۔ تیل اور چکنائی کے لیے IS 548 اور متعلقہ تیل قسم کی تفصیل دیکھیں۔",
+        scopeTitle: "کیٹلاگ کا دائرہ",
+        scopeCopy: "یہ سروس دستیاب BIS کیٹلاگ ڈیٹا استعمال کرتی ہے۔ اگر مصنوعات موجودہ کیٹلاگ سے باہر ہو تو غیر متعلقہ معیارات کے بجائے تصدیقی مشورہ دکھایا جائے گا۔",
+        workflowTitle: "اس سروس کا استعمال کیسے کریں",
+        stepOne: "مصنوعات، مواد، گریڈ اور استعمال درج کریں۔",
+        stepTwo: "متعلقہ IS کوڈز اور کیٹلاگ وجہ کا جائزہ لیں۔",
+        stepThree: "سرٹیفیکیشن کارروائی سے پہلے سرکاری BIS پورٹل پر ضروریات کی تصدیق کریں۔",
+        advisoryTitle: "اہم مشورہ",
+        advisoryCopy: "یہ ڈیجیٹل سروس معیارات کی تلاش میں مدد کرتی ہے۔ یہ سرکاری BIS معیارات، سرٹیفیکیشن قواعد، ٹیسٹنگ ضروریات یا ماہر تشخیص کا بدل نہیں ہے۔",
+        footerTitle: "BIS معیارات سفارش انجن",
+        footerBis: "BIS خدمات",
+        footerGov: "سرکاری رابطے",
+        footerService: "سروس تک رسائی",
+        footerBisWebsite: "BIS سرکاری ویب سائٹ",
+        footerDownload: "بھارتی معیارات ڈاؤن لوڈ کریں",
+        footerManak: "مانک آن لائن",
+        footerCertification: "مصنوعات سرٹیفیکیشن",
+        footerIndiaPortal: "بھارت کا قومی پورٹل",
+        footerConsumerAffairs: "محکمہ صارف امور",
+        footerConsumerHelpline: "قومی صارف ہیلپ لائن",
+        footerUx4g: "UX4G ڈیزائن سسٹم",
+        footerStatus: "سروس کی حالت",
+        footerHealth: "ہیلتھ اینڈپوائنٹ",
+        footerApi: "ڈویلپر API",
+        footerSearch: "معیارات تلاش کریں",
+        footer: "BIS معیارات کی تلاش کے لیے ڈیجیٹل معاونت۔ حتمی تعمیل کے فیصلے سرکاری BIS دستاویزات اور مجاز حکام سے تصدیق کریں۔",
+        footerNote: "یہ ایپلی کیشن معیارات کی تلاش کے لیے معاون ہے۔ یہ سرکاری BIS سروس نہیں ہے۔",
+        footerUpdated: "آخری جائزہ: 02 مئی 2026",
+        footerTop: "تلاش پر واپس",
+        sampleDefault: "ہم عام عمارت تعمیر کے لیے 33 Grade Ordinary Portland Cement بناتے ہیں۔ کون سا بھارتی معیار لاگو ہے؟",
+        sampleAggregatesLabel: "ایگریگیٹس",
+        sampleAggregates: "ساختی کنکریٹ کے لیے قدرتی ذرائع سے موٹے اور باریک ایگریگیٹس",
+        samplePipesLabel: "کنکریٹ پائپ",
+        samplePipes: "واٹر مینز کے لیے مضبوطی کے ساتھ اور بغیر پری کاسٹ کنکریٹ پائپ",
+        sampleWhiteCementLabel: "سفید سیمنٹ",
+        sampleWhiteCement: "تعمیراتی اور آرائشی استعمال کے لیے سفید پورٹ لینڈ سیمنٹ"
+      }
+    };
+
+    Object.entries(localeCompletion).forEach(([lang, values]) => {
+      translations[lang] = { ...translations[lang], ...values };
+    });
+
     const form = document.querySelector("#recommendForm");
     const queryInput = document.querySelector("#query");
     const submitButton = document.querySelector("#submit");
@@ -1303,6 +1982,7 @@ INDEX_HTML = """
     const warnings = document.querySelector("#warnings");
     const languageSelect = document.querySelector("#languageSelect");
     let currentLang = "en";
+    let latestResultData = null;
 
     function escapeHtml(value) {
       return String(value)
@@ -1315,6 +1995,10 @@ INDEX_HTML = """
 
     function t(key) {
       return (translations[currentLang] && translations[currentLang][key]) || baseText[key] || key;
+    }
+
+    function bisSearchUrl(code) {
+      return `https://standardsbis.bsbedge.com/BIS_SearchStandard.aspx?Standard_Number=${encodeURIComponent(code)}&id=0`;
     }
 
     function applyLanguage(lang) {
@@ -1337,8 +2021,12 @@ INDEX_HTML = """
         queryInput.value = t("sampleDefault");
       }
       queryInput.placeholder = t("queryLabel");
-      if (latency.textContent === baseText.ready || latency.textContent === translations.hi.ready) {
+      const readyLabels = Object.values(translations).map((locale) => locale.ready);
+      if (readyLabels.includes(latency.textContent)) {
         latency.textContent = t("ready");
+      }
+      if (latestResultData) {
+        renderResults(latestResultData);
       }
     }
 
@@ -1350,10 +2038,19 @@ INDEX_HTML = """
     function renderWarnings(items) {
       warnings.innerHTML = "";
       if (!items || !items.length) return;
-      warnings.innerHTML = items.map((item) => `<div class="warning">${escapeHtml(item)}</div>`).join("");
+      warnings.innerHTML = items.map((item) => `<div class="warning">${escapeHtml(localizedWarning(item))}</div>`).join("");
+    }
+
+    function localizedWarning(item) {
+      const warning = String(item || "");
+      const lower = warning.toLowerCase();
+      if (lower.includes("pencil")) return t("pencilWarning");
+      if (lower.includes("edible oil")) return t("edibleOilWarning");
+      return warning;
     }
 
     function renderResults(data) {
+      latestResultData = data;
       latency.textContent = `${Number(data.latency_seconds || 0).toFixed(3)}s`;
       renderWarnings(data.compliance_warnings);
       const recommendations = data.recommendations || [];
@@ -1366,9 +2063,9 @@ INDEX_HTML = """
             <div>
               <h3><span class="code">${escapeHtml(item.code)}</span>${escapeHtml(item.title)}</h3>
               <p class="rationale">${escapeHtml(item.rationale)}</p>
-              <div class="confidence">
+              <div class="result-meta">
                 <span>${escapeHtml(t("outsideCatalog"))}</span>
-                <a href="${escapeHtml(item.source_url)}" target="_blank" rel="noopener">${escapeHtml(t("verifyBis"))}</a>
+                <a href="${escapeHtml(item.source_url)}" target="_blank" rel="noopener">${escapeHtml(item.source_url)}</a>
               </div>
             </div>
           </article>
@@ -1383,17 +2080,14 @@ INDEX_HTML = """
 
       resultBody.className = "result-list";
       resultBody.innerHTML = recommendations.map((item, index) => {
-        const confidence = Math.round(Number(item.confidence || 0) * 100);
         return `
           <article class="result">
             <div class="rank">${index + 1}</div>
             <div>
               <h3><span class="code">${escapeHtml(item.code)}</span>${escapeHtml(item.title || "BIS standard")}</h3>
               <p class="rationale">${escapeHtml(item.rationale || "Matched against the BIS catalogue.")}</p>
-              <div class="confidence">
-                <span>${escapeHtml(t("confidence"))}</span>
-                <span class="bar"><span style="width:${confidence}%"></span></span>
-                <span>${confidence}%</span>
+              <div class="result-meta">
+                <a href="${escapeHtml(bisSearchUrl(item.code))}" target="_blank" rel="noopener">${escapeHtml(t("verifyBis"))}</a>
               </div>
             </div>
           </article>
@@ -1402,6 +2096,7 @@ INDEX_HTML = """
     }
 
     async function recommend(query) {
+      latestResultData = null;
       setLoading(true);
       latency.textContent = t("searching");
       resultBody.className = "empty-state";
@@ -1414,13 +2109,13 @@ INDEX_HTML = """
         });
         const data = await response.json();
         if (!response.ok) {
-          throw new Error(data.detail || "Recommendation failed");
+          throw new Error(data.detail || t("recommendationFailed"));
         }
         renderResults(data);
       } catch (error) {
-        latency.textContent = "Error";
+        latency.textContent = t("error");
         resultBody.className = "empty-state";
-        resultBody.textContent = error.message;
+        resultBody.textContent = error.message || t("recommendationFailed");
       } finally {
         setLoading(false);
       }
@@ -1524,7 +2219,52 @@ def _recommendation_items(codes: list[str], language: str = "en") -> list[dict[s
 
 
 def _external_standards(query: str, language: str = "en") -> list[dict[str, str]]:
-    if not is_out_of_scope_product(query):
+    if is_edible_oil_query(query):
+        return [
+            {
+                "code": "IS 548 (Part 1/Sec 1):2021",
+                "title": "Method of Sampling and Test for Oils and Fats - Sampling",
+                "rationale": (
+                    "Use this Indian Standard for sampling crude or processed animal and vegetable "
+                    "fats and oils, including individual and blended edible oils."
+                ),
+                "source_url": "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=548_1_1",
+            },
+            {
+                "code": "IS 548 (Part 1/Sec 2):2021",
+                "title": "Method of Sampling and Test for Oils and Fats - Physical and Chemical Tests",
+                "rationale": (
+                    "Use this Indian Standard for physical and chemical tests of individual oils, "
+                    "blended oils, fortified oils, fats and related products."
+                ),
+                "source_url": "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=548_1_2",
+            },
+            {
+                "code": "IS 548 (Part 2):1976",
+                "title": "Methods of Sampling and Test for Oils and Fats - Purity Tests",
+                "rationale": "Use this Indian Standard for purity testing requirements for oils and fats.",
+                "source_url": "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=548_2_1976_Reff2020",
+            },
+            {
+                "code": "IS 14349:2025",
+                "title": "Code for Hygienic Conditions for Processing Units of Edible Oils and Fats",
+                "rationale": (
+                    "Use this Indian Standard for hygienic conditions in edible oils and fats "
+                    "manufacturing, packing, storage and transport facilities."
+                ),
+                "source_url": "https://www.bis.gov.in/index.php/standard-of-the-month/",
+            },
+            {
+                "code": "IS 14636:1998",
+                "title": "Flexible Packaging Materials for Packaging of Edible Oils, Ghee and Vanaspati",
+                "rationale": (
+                    "Use this Indian Standard when edible oil is packed in flexible packaging "
+                    "materials."
+                ),
+                "source_url": "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=14636",
+            },
+        ]
+    if not is_pencil_query(query):
         return []
     if language == "hi":
         first_rationale = (
