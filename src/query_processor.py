@@ -55,7 +55,7 @@ def _code_token(match: re.Match[str]) -> str:
     number = _normalize_code_number(match.group(1))
     part = _normalize_code_number(match.group(2)) if match.group(2) else "0"
     year = match.group(3)
-    return f" iscode{number}p{part}y{year} " if year else " "
+    return f" iscode{number}p{part}y{year} " if year else match.group(0)
 
 
 def fallback_tokenize(text: str) -> list[str]:
