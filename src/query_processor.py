@@ -24,7 +24,7 @@ IS_CODE_QUERY_PATTERN = re.compile(
 STOP_WORDS = frozenset({"the", "a", "an", "of", "to", "and", "or", "in", "on", "for", "be"})
 
 
-@dataclass
+@dataclass(frozen=True)
 class ProcessedQuery:
     raw: str
     normalized: str
