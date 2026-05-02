@@ -76,10 +76,20 @@ def test_asbestos_terms_emit_compliance_warning():
 
 def test_pencil_query_is_marked_out_of_scope():
     qp = QueryProcessor()
-    pq = qp.process("we are making graphite lead pencils")
+    queries = [
+        "we are making graphite lead pencils",
+        "हम ग्रेफाइट लेड पेंसिल बनाते हैं",
+        "আমরা গ্রাফাইট লেড পেন্সিল তৈরি করি",
+        "நாங்கள் கிராஃபைட் லீட் பென்சில்கள் தயாரிக்கிறோம்",
+        "మేము గ్రాఫైట్ లీడ్ పెన్సిల్స్ తయారు చేస్తున్నాము",
+        "અમે ગ્રાફાઇટ લીડ પેન્સિલ બનાવીએ છીએ",
+        "ہم گریفائٹ لیڈ پنسل بناتے ہیں",
+    ]
 
-    assert pq.out_of_scope is True
-    assert any("pencil" in warning.lower() for warning in pq.compliance_warnings)
+    for query in queries:
+        pq = qp.process(query)
+        assert pq.out_of_scope is True, query
+        assert any("pencil" in warning.lower() for warning in pq.compliance_warnings)
 
 
 def test_expander_supports_reverse_mapping(tmp_path):

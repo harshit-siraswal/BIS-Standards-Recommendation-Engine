@@ -25,7 +25,26 @@ IS_CODE_QUERY_PATTERN = re.compile(
 STOP_WORDS = frozenset({"the", "a", "an", "of", "to", "and", "or", "in", "on", "for", "be"})
 OUT_OF_SCOPE_PRODUCT_RULES = (
     (
-        ("pencil", "pencils"),
+        (
+            "pencil",
+            "pencils",
+            "pensil",
+            "pencilon",
+            "pencilan",
+            "पेंसिल",
+            "पेन्सिल",
+            "பென்சில்",
+            "பென்சில்கள்",
+            "పెన్సిల్",
+            "పెన్సిల్స్",
+            "પેન્સિલ",
+            "ಪೆನ್ಸಿಲ್",
+            "പെൻസിൽ",
+            "പെൻസിലുകൾ",
+            "পেন্সিল",
+            "ਪੈਂਸਿਲ",
+            "پنسل",
+        ),
         "Graphite or black lead pencils are outside the bundled BIS SP 21 building-materials catalog. "
         "Verify pencil-specific BIS standards separately, such as IS 1375:2021 and IS 2079:2022.",
     ),
@@ -55,6 +74,37 @@ def normalize_match_text(text: str) -> str:
     normalized = normalized.replace("&", " and ")
     normalized = WORD_JOIN_PATTERN.sub(" ", normalized)
     return WHITESPACE_PATTERN.sub(" ", normalized).strip()
+
+
+def normalize_script_text(text: str) -> str:
+    """Normalize text without stripping Indic and right-to-left scripts."""
+    normalized = unicodedata.normalize("NFKC", str(text or "")).lower()
+    normalized = normalized.replace("\u200c", "").replace("\u200d", "")
+    return WHITESPACE_PATTERN.sub(" ", normalized).strip()
+
+
+def contains_any_term(text: str, terms: Iterable[str]) -> bool:
+    normalized_text = normalize_script_text(text)
+    compact_text = normalized_text.replace(" ", "")
+    latin_searchable = f" {normalize_match_text(text)} "
+
+    for term in terms:
+        normalized_term = normalize_script_text(term)
+        if not normalized_term:
+            continue
+        if TOKEN_PATTERN.search(normalized_term):
+            term_key = normalize_match_text(normalized_term)
+            if term_key and f" {term_key} " in latin_searchable:
+                return True
+            continue
+        compact_term = normalized_term.replace(" ", "")
+        if compact_term and compact_term in compact_text:
+            return True
+    return False
+
+
+def is_out_of_scope_product(query: str) -> bool:
+    return any(contains_any_term(query, terms) for terms, _warning in OUT_OF_SCOPE_PRODUCT_RULES)
 
 
 def _normalize_code_number(number: str) -> str:
@@ -222,17 +272,13 @@ class QueryProcessor:
             if f" {term_key} " in searchable and warning not in warnings:
                 warnings.append(warning)
         for terms, warning in OUT_OF_SCOPE_PRODUCT_RULES:
-            if any(f" {normalize_match_text(term)} " in searchable for term in terms):
+            if contains_any_term(normalized, terms) or contains_any_term(expanded, terms):
                 warnings.append(warning)
         return warnings
 
     @staticmethod
     def _is_out_of_scope(normalized: str) -> bool:
-        searchable = f" {normalize_match_text(normalized)} "
-        return any(
-            any(f" {normalize_match_text(term)} " in searchable for term in terms)
-            for terms, _warning in OUT_OF_SCOPE_PRODUCT_RULES
-        )
+        return is_out_of_scope_product(normalized)
 
     def process(self, query: str) -> ProcessedQuery:
         normalized = normalize_query_text(query)

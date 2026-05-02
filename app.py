@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from html import escape
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
 from src.pipeline import BISPipeline, MAX_QUERY_CHARS
+from src.query_processor import is_out_of_scope_product
 from src.retriever import normalize_standard_code
 
 
@@ -59,6 +61,18 @@ class RecommendationResponse(BaseModel):
     external_standards: list[ExternalStandard] = Field(default_factory=list)
 
 
+FAVICON_SVG = """
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="BIS">
+  <rect width="64" height="64" rx="10" fill="#08366f"/>
+  <path d="M8 12h48v10H8z" fill="#ff9933"/>
+  <path d="M8 42h48v10H8z" fill="#138808"/>
+  <circle cx="32" cy="32" r="12" fill="#ffffff"/>
+  <circle cx="32" cy="32" r="8" fill="none" stroke="#08366f" stroke-width="2"/>
+  <text x="32" y="36.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="800" fill="#08366f">BIS</text>
+</svg>
+""".strip()
+
+
 INDEX_HTML = """
 <!doctype html>
 <html lang="en">
@@ -66,6 +80,9 @@ INDEX_HTML = """
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>BIS Standards Recommendation Engine</title>
+  <meta name="theme-color" content="#08366f" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="alternate icon" href="/favicon.ico" />
   <script>
     if ("scrollRestoration" in history) {
       history.scrollRestoration = "manual";
@@ -631,10 +648,84 @@ INDEX_HTML = """
 
     footer {
       border-top: 1px solid var(--line);
-      background: #eef4fb;
-      color: var(--muted);
-      padding: 22px 0;
-      font-size: 0.86rem;
+      background: #082f63;
+      color: rgba(255, 255, 255, 0.84);
+      font-size: 0.9rem;
+    }
+
+    .footer-inner {
+      display: grid;
+      grid-template-columns: 1.25fr repeat(3, 1fr);
+      gap: 28px;
+      padding: 34px 0 26px;
+    }
+
+    .footer-brand {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .footer-mark {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background:
+        linear-gradient(180deg, var(--saffron) 0 32%, #ffffff 32% 66%, var(--india-green) 66% 100%);
+      color: var(--gov-navy);
+      font-weight: 900;
+      border: 2px solid rgba(255, 255, 255, 0.75);
+    }
+
+    .footer-brand strong,
+    .footer-links h2 {
+      color: var(--white);
+      font-size: 0.98rem;
+      margin: 0 0 10px;
+      letter-spacing: 0;
+    }
+
+    .footer-brand p,
+    .footer-note p {
+      margin: 0;
+    }
+
+    .footer-links ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .footer-links a,
+    .footer-bottom a {
+      color: rgba(255, 255, 255, 0.9);
+      text-decoration: none;
+    }
+
+    .footer-links a:hover,
+    .footer-bottom a:hover {
+      text-decoration: underline;
+    }
+
+    .footer-bottom {
+      border-top: 1px solid rgba(255, 255, 255, 0.18);
+      padding: 14px 0 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-note {
+      background: #06264e;
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 0.82rem;
+      padding: 10px 0;
     }
 
     body.contrast {
@@ -666,6 +757,10 @@ INDEX_HTML = """
       .service-card {
         max-width: 560px;
       }
+
+      .footer-inner {
+        grid-template-columns: 1fr 1fr;
+      }
     }
 
     @media (max-width: 620px) {
@@ -692,6 +787,10 @@ INDEX_HTML = """
       .result {
         grid-template-columns: 1fr;
       }
+
+      .footer-inner {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -699,7 +798,7 @@ INDEX_HTML = """
   <header>
     <div class="gov-strip">
       <div class="strip-inner">
-        <div data-i18n="govStrip">An official Government of India digital service</div>
+        <div data-i18n="govStrip">BIS standards discovery digital service</div>
         <div class="strip-links" aria-label="accessibility controls">
           <label for="languageSelect" data-i18n="languageLabel">Language</label>
           <select id="languageSelect" class="language-select" aria-label="Language">
@@ -814,12 +913,54 @@ INDEX_HTML = """
   </main>
 
   <footer>
-    <div class="wrap" data-i18n="footer">Digital aid for BIS standards discovery. Validate final compliance decisions with official BIS documents and competent authorities.</div>
+    <div class="wrap footer-inner">
+      <div class="footer-brand">
+        <div class="footer-mark" aria-hidden="true">BIS</div>
+        <strong data-i18n="footerTitle">BIS Standards Recommendation Engine</strong>
+        <p data-i18n="footer">Digital aid for BIS standards discovery. Validate final compliance decisions with official BIS documents and competent authorities.</p>
+      </div>
+      <div class="footer-links">
+        <h2 data-i18n="footerBis">BIS services</h2>
+        <ul>
+          <li><a href="https://www.bis.gov.in/" target="_blank" rel="noopener">BIS official website</a></li>
+          <li><a href="https://standardsbis.bsbedge.com/" target="_blank" rel="noopener">Download Indian Standards</a></li>
+          <li><a href="https://www.manakonline.in/" target="_blank" rel="noopener">Manak Online</a></li>
+          <li><a href="https://www.bis.gov.in/product-certification/product-certification-overview/?lang=en" target="_blank" rel="noopener">Product certification</a></li>
+        </ul>
+      </div>
+      <div class="footer-links">
+        <h2 data-i18n="footerGov">Government links</h2>
+        <ul>
+          <li><a href="https://www.india.gov.in/" target="_blank" rel="noopener">National Portal of India</a></li>
+          <li><a href="https://consumeraffairs.gov.in/" target="_blank" rel="noopener">Department of Consumer Affairs</a></li>
+          <li><a href="https://consumerhelpline.gov.in/" target="_blank" rel="noopener">National Consumer Helpline</a></li>
+          <li><a href="https://www.ux4g.gov.in/design-system.php" target="_blank" rel="noopener">UX4G Design System</a></li>
+        </ul>
+      </div>
+      <div class="footer-links">
+        <h2 data-i18n="footerService">Service access</h2>
+        <ul>
+          <li><a href="/api/status">Service status</a></li>
+          <li><a href="/health">Health endpoint</a></li>
+          <li><a href="/docs">Developer API</a></li>
+          <li><a href="#search">Search standards</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-note">
+      <div class="wrap">
+        <p data-i18n="footerNote">This application is a standards discovery aid. It is not an official BIS service.</p>
+      </div>
+    </div>
+    <div class="wrap footer-bottom">
+      <span data-i18n="footerUpdated">Last reviewed: 02 May 2026</span>
+      <span><a href="#search" data-i18n="footerTop">Back to search</a></span>
+    </div>
   </footer>
 
   <script>
     const baseText = {
-      govStrip: "An official Government of India digital service",
+      govStrip: "BIS standards discovery digital service",
       languageLabel: "Language",
       contrast: "Contrast",
       brandSubtitle: "Bureau of Indian Standards lookup for manufacturing enterprises",
@@ -858,7 +999,14 @@ INDEX_HTML = """
       stepThree: "Verify requirements on the official BIS portal before certification action.",
       advisoryTitle: "Important advisory",
       advisoryCopy: "This digital service supports standards discovery. It does not replace official BIS standards, certification rules, testing requirements, or expert assessment.",
+      footerTitle: "BIS Standards Recommendation Engine",
+      footerBis: "BIS services",
+      footerGov: "Government links",
+      footerService: "Service access",
       footer: "Digital aid for BIS standards discovery. Validate final compliance decisions with official BIS documents and competent authorities.",
+      footerNote: "This application is a standards discovery aid. It is not an official BIS service.",
+      footerUpdated: "Last reviewed: 02 May 2026",
+      footerTop: "Back to search",
       sampleDefault: "We manufacture 33 Grade Ordinary Portland Cement for general building construction. Which Indian Standard is applicable?",
       sampleAggregatesLabel: "Aggregates",
       sampleAggregates: "coarse and fine aggregates from natural sources for structural concrete",
@@ -872,7 +1020,7 @@ INDEX_HTML = """
       en: baseText,
       hi: {
         ...baseText,
-        govStrip: "भारत सरकार की आधिकारिक डिजिटल सेवा",
+        govStrip: "BIS मानक खोज डिजिटल सेवा",
         languageLabel: "भाषा",
         contrast: "कॉन्ट्रास्ट",
         brandSubtitle: "विनिर्माण उद्यमों के लिए भारतीय मानक ब्यूरो मानक खोज",
@@ -919,7 +1067,7 @@ INDEX_HTML = """
       },
       hinglish: {
         ...baseText,
-        govStrip: "Government of India ki official digital service",
+        govStrip: "BIS standards discovery digital seva",
         languageLabel: "Bhasha",
         contrast: "Contrast",
         brandSubtitle: "Manufacturing enterprises ke liye BIS standards lookup",
@@ -962,7 +1110,7 @@ INDEX_HTML = """
       },
       bn: {
         ...baseText,
-        govStrip: "ভারত সরকারের সরকারি ডিজিটাল পরিষেবা",
+        govStrip: "BIS মান অনুসন্ধান ডিজিটাল পরিষেবা",
         languageLabel: "ভাষা",
         heroTitle: "আপনার পণ্যের জন্য প্রযোজ্য ভারতীয় মান অনুসন্ধান করুন।",
         queryLabel: "পণ্য, উপাদান, গ্রেড এবং ব্যবহারের বিবরণ দিন",
@@ -972,7 +1120,7 @@ INDEX_HTML = """
       },
       ta: {
         ...baseText,
-        govStrip: "இந்திய அரசின் அதிகாரப்பூர்வ டிஜிட்டல் சேவை",
+        govStrip: "BIS தர தேடல் டிஜிட்டல் சேவை",
         languageLabel: "மொழி",
         heroTitle: "உங்கள் தயாரிப்பிற்கு பொருந்தும் இந்திய தரங்களைத் தேடுங்கள்.",
         queryLabel: "தயாரிப்பு, பொருள், தரம் மற்றும் பயன்பாட்டை விவரிக்கவும்",
@@ -982,7 +1130,7 @@ INDEX_HTML = """
       },
       te: {
         ...baseText,
-        govStrip: "భారత ప్రభుత్వ అధికారిక డిజిటల్ సేవ",
+        govStrip: "BIS ప్రమాణాల శోధన డిజిటల్ సేవ",
         languageLabel: "భాష",
         heroTitle: "మీ ఉత్పత్తికి వర్తించే భారతీయ ప్రమాణాలను శోధించండి.",
         queryLabel: "ఉత్పత్తి, పదార్థం, గ్రేడ్ మరియు వినియోగాన్ని వివరించండి",
@@ -992,7 +1140,7 @@ INDEX_HTML = """
       },
       mr: {
         ...baseText,
-        govStrip: "भारत सरकारची अधिकृत डिजिटल सेवा",
+        govStrip: "BIS मानक शोध डिजिटल सेवा",
         languageLabel: "भाषा",
         heroTitle: "आपल्या उत्पादनासाठी लागू भारतीय मानके शोधा.",
         queryLabel: "उत्पादन, साहित्य, ग्रेड आणि वापराचे वर्णन करा",
@@ -1002,7 +1150,7 @@ INDEX_HTML = """
       },
       gu: {
         ...baseText,
-        govStrip: "ભારત સરકારની સત્તાવાર ડિજિટલ સેવા",
+        govStrip: "BIS ધોરણ શોધ ડિજિટલ સેવા",
         languageLabel: "ભાષા",
         heroTitle: "તમારા ઉત્પાદન માટે લાગુ ભારતીય ધોરણો શોધો.",
         queryLabel: "ઉત્પાદન, સામગ્રી, ગ્રેડ અને ઉપયોગનું વર્ણન કરો",
@@ -1012,7 +1160,7 @@ INDEX_HTML = """
       },
       kn: {
         ...baseText,
-        govStrip: "ಭಾರತ ಸರ್ಕಾರದ ಅಧಿಕೃತ ಡಿಜಿಟಲ್ ಸೇವೆ",
+        govStrip: "BIS ಮಾನದಂಡ ಹುಡುಕಾಟ ಡಿಜಿಟಲ್ ಸೇವೆ",
         languageLabel: "ಭಾಷೆ",
         heroTitle: "ನಿಮ್ಮ ಉತ್ಪನ್ನಕ್ಕೆ ಅನ್ವಯಿಸುವ ಭಾರತೀಯ ಮಾನದಂಡಗಳನ್ನು ಹುಡುಕಿ.",
         queryLabel: "ಉತ್ಪನ್ನ, ವಸ್ತು, ಗ್ರೇಡ್ ಮತ್ತು ಬಳಕೆಯನ್ನು ವಿವರಿಸಿ",
@@ -1022,7 +1170,7 @@ INDEX_HTML = """
       },
       ml: {
         ...baseText,
-        govStrip: "ഇന്ത്യ സർക്കാരിന്റെ ഔദ്യോഗിക ഡിജിറ്റൽ സേവനം",
+        govStrip: "BIS സ്റ്റാൻഡേർഡ് തിരച്ചിൽ ഡിജിറ്റൽ സേവനം",
         languageLabel: "ഭാഷ",
         heroTitle: "നിങ്ങളുടെ ഉൽപ്പന്നത്തിന് ബാധകമായ ഇന്ത്യൻ സ്റ്റാൻഡേർഡുകൾ തിരയുക.",
         queryLabel: "ഉൽപ്പന്നം, വസ്തു, ഗ്രേഡ്, ഉപയോഗം എന്നിവ വിവരിക്കുക",
@@ -1032,7 +1180,7 @@ INDEX_HTML = """
       },
       pa: {
         ...baseText,
-        govStrip: "ਭਾਰਤ ਸਰਕਾਰ ਦੀ ਅਧਿਕਾਰਿਕ ਡਿਜ਼ਿਟਲ ਸੇਵਾ",
+        govStrip: "BIS ਮਿਆਰ ਖੋਜ ਡਿਜ਼ਿਟਲ ਸੇਵਾ",
         languageLabel: "ਭਾਸ਼ਾ",
         heroTitle: "ਆਪਣੇ ਉਤਪਾਦ ਲਈ ਲਾਗੂ ਭਾਰਤੀ ਮਿਆਰ ਖੋਜੋ।",
         queryLabel: "ਉਤਪਾਦ, ਸਮੱਗਰੀ, ਗ੍ਰੇਡ ਅਤੇ ਵਰਤੋਂ ਦਾ ਵੇਰਵਾ ਦਿਓ",
@@ -1042,7 +1190,7 @@ INDEX_HTML = """
       },
       ur: {
         ...baseText,
-        govStrip: "حکومت ہند کی سرکاری ڈیجیٹل خدمت",
+        govStrip: "BIS معیارات کی تلاش ڈیجیٹل خدمت",
         languageLabel: "زبان",
         heroTitle: "اپنی مصنوعات کے لیے قابل اطلاق بھارتی معیارات تلاش کریں۔",
         queryLabel: "مصنوعات، مواد، گریڈ اور استعمال کی تفصیل درج کریں",
@@ -1051,6 +1199,101 @@ INDEX_HTML = """
         emptyState: "معیاری رہنمائی دیکھنے کے لیے مصنوعات کی تفصیل درج کریں۔"
       }
     };
+
+    const footerTranslations = {
+      hi: {
+        footerBis: "BIS \u0938\u0947\u0935\u093e\u090f\u0902",
+        footerGov: "\u0938\u0930\u0915\u093e\u0930\u0940 \u0932\u093f\u0902\u0915",
+        footerService: "\u0938\u0947\u0935\u093e \u092a\u0939\u0941\u0902\u091a",
+        footerNote: "\u092f\u0939 \u090f\u092a\u094d\u0932\u093f\u0915\u0947\u0936\u0928 \u092e\u093e\u0928\u0915 \u0916\u094b\u091c \u0915\u0947 \u0932\u093f\u090f \u0938\u0939\u093e\u092f\u0924\u093e \u0939\u0948\u0964 \u092f\u0939 \u0906\u0927\u093f\u0915\u093e\u0930\u093f\u0915 BIS \u0938\u0947\u0935\u093e \u0928\u0939\u0940\u0902 \u0939\u0948\u0964",
+        footerUpdated: "\u0905\u0902\u0924\u093f\u092e \u0938\u092e\u0940\u0915\u094d\u0937\u093e: 02 \u092e\u0908 2026",
+        footerTop: "\u0916\u094b\u091c \u092a\u0930 \u0935\u093e\u092a\u0938 \u091c\u093e\u090f\u0902"
+      },
+      hinglish: {
+        footerBis: "BIS services",
+        footerGov: "Government links",
+        footerService: "Service access",
+        footerNote: "Ye application standards discovery aid hai. Ye official BIS service nahi hai.",
+        footerUpdated: "Last reviewed: 02 May 2026",
+        footerTop: "Search par wapas"
+      },
+      bn: {
+        footerBis: "BIS \u09aa\u09b0\u09bf\u09b7\u09c7\u09ac\u09be",
+        footerGov: "\u09b8\u09b0\u0995\u09be\u09b0\u09bf \u09b2\u09bf\u0999\u09cd\u0995",
+        footerService: "\u09aa\u09b0\u09bf\u09b7\u09c7\u09ac\u09be \u09aa\u09cd\u09b0\u09ac\u09c7\u09b6",
+        footerNote: "\u098f\u0987 \u0985\u09cd\u09af\u09be\u09aa\u09cd\u09b2\u09bf\u0995\u09c7\u09b6\u09a8\u099f\u09bf \u09ae\u09be\u09a8 \u0985\u09a8\u09c1\u09b8\u09a8\u09cd\u09a7\u09be\u09a8\u09c7\u09b0 \u09b8\u09b9\u09be\u09df\u0995\u0964 \u098f\u099f\u09bf \u0986\u09a7\u09bf\u0995\u09be\u09b0\u09bf\u0995 BIS \u09aa\u09b0\u09bf\u09b7\u09c7\u09ac\u09be \u09a8\u09df\u0964",
+        footerUpdated: "\u09b6\u09c7\u09b7 \u09aa\u09b0\u09cd\u09af\u09be\u09b2\u09cb\u099a\u09a8\u09be: 02 \u09ae\u09c7 2026",
+        footerTop: "\u0985\u09a8\u09c1\u09b8\u09a8\u09cd\u09a7\u09be\u09a8\u09c7 \u09ab\u09bf\u09b0\u09c1\u09a8"
+      },
+      ta: {
+        footerBis: "BIS \u0b9a\u0bc7\u0bb5\u0bc8\u0b95\u0bb3\u0bcd",
+        footerGov: "\u0b85\u0bb0\u0b9a\u0bc1 \u0b87\u0ba3\u0bc8\u0baa\u0bcd\u0baa\u0bc1\u0b95\u0bb3\u0bcd",
+        footerService: "\u0b9a\u0bc7\u0bb5\u0bc8 \u0b85\u0ba3\u0bc1\u0b95\u0bb2\u0bcd",
+        footerNote: "\u0b87\u0ba8\u0bcd\u0ba4 \u0baa\u0baf\u0ba9\u0bcd\u0baa\u0bbe\u0b9f\u0bc1 \u0ba4\u0bb0 \u0ba4\u0bc7\u0b9f\u0bb2\u0bc1\u0b95\u0bcd\u0b95\u0bbe\u0ba9 \u0b89\u0ba4\u0bb5\u0bbf\u0baf\u0bbe\u0b95\u0bc1\u0bae\u0bcd. \u0b87\u0ba4\u0bc1 \u0b85\u0ba4\u0bbf\u0b95\u0bbe\u0bb0\u0baa\u0bcd\u0baa\u0bc2\u0bb0\u0bcd\u0bb5 BIS \u0b9a\u0bc7\u0bb5\u0bc8 \u0b85\u0bb2\u0bcd\u0bb2.",
+        footerUpdated: "\u0b95\u0b9f\u0bc8\u0b9a\u0bbf \u0bae\u0ba4\u0bbf\u0baa\u0bcd\u0baa\u0bbe\u0baf\u0bcd\u0bb5\u0bc1: 02 \u0bae\u0bc7 2026",
+        footerTop: "\u0ba4\u0bc7\u0b9f\u0bb2\u0bc1\u0b95\u0bcd\u0b95\u0bc1 \u0ba4\u0bbf\u0bb0\u0bc1\u0bae\u0bcd\u0baa\u0bc1"
+      },
+      te: {
+        footerBis: "BIS \u0c38\u0c47\u0c35\u0c32\u0c41",
+        footerGov: "\u0c2a\u0c4d\u0c30\u0c2d\u0c41\u0c24\u0c4d\u0c35 \u0c32\u0c3f\u0c02\u0c15\u0c4d\u0c32\u0c41",
+        footerService: "\u0c38\u0c47\u0c35 \u0c2a\u0c4d\u0c30\u0c35\u0c47\u0c36\u0c02",
+        footerNote: "\u0c08 \u0c05\u0c2a\u0c4d\u0c32\u0c3f\u0c15\u0c47\u0c37\u0c28\u0c4d \u0c2a\u0c4d\u0c30\u0c2e\u0c3e\u0c23\u0c3e\u0c32 \u0c36\u0c4b\u0c27\u0c28\u0c15\u0c41 \u0c38\u0c39\u0c3e\u0c2f\u0c02. \u0c07\u0c26\u0c3f \u0c05\u0c27\u0c3f\u0c15\u0c3e\u0c30\u0c3f\u0c15 BIS \u0c38\u0c47\u0c35 \u0c15\u0c3e\u0c26\u0c41.",
+        footerUpdated: "\u0c1a\u0c3f\u0c35\u0c30\u0c3f \u0c38\u0c2e\u0c40\u0c15\u0c4d\u0c37: 02 \u0c2e\u0c47 2026",
+        footerTop: "\u0c36\u0c4b\u0c27\u0c28\u0c15\u0c41 \u0c24\u0c3f\u0c30\u0c3f\u0c17\u0c3f \u0c35\u0c46\u0c33\u0c4d\u0c32\u0c02\u0c21\u0c3f"
+      },
+      mr: {
+        footerBis: "BIS \u0938\u0947\u0935\u093e",
+        footerGov: "\u0936\u093e\u0938\u0915\u0940\u092f \u0926\u0941\u0935\u0947",
+        footerService: "\u0938\u0947\u0935\u093e \u092a\u094d\u0930\u0935\u0947\u0936",
+        footerNote: "\u0939\u0947 \u0905\u0945\u092a\u094d\u0932\u093f\u0915\u0947\u0936\u0928 \u092e\u093e\u0928\u0915 \u0936\u094b\u0927\u0923\u094d\u092f\u093e\u0938\u093e\u0920\u0940 \u0938\u0939\u093e\u092f\u094d\u092f\u0915 \u0906\u0939\u0947. \u0939\u0940 \u0905\u0927\u093f\u0915\u0943\u0924 BIS \u0938\u0947\u0935\u093e \u0928\u093e\u0939\u0940.",
+        footerUpdated: "\u0936\u0947\u0935\u091f\u091a\u0940 \u0938\u092e\u0940\u0915\u094d\u0937\u093e: 02 \u092e\u0947 2026",
+        footerTop: "\u0936\u094b\u0927\u093e\u0915\u0921\u0947 \u092a\u0930\u0924 \u091c\u093e"
+      },
+      gu: {
+        footerBis: "BIS \u0ab8\u0ac7\u0ab5\u0abe\u0a93",
+        footerGov: "\u0ab8\u0ab0\u0a95\u0abe\u0ab0\u0ac0 \u0ab2\u0abf\u0a82\u0a95\u0acd\u0ab8",
+        footerService: "\u0ab8\u0ac7\u0ab5\u0abe \u0a8d\u0a95\u0acd\u0ab8\u0ac7\u0ab8",
+        footerNote: "\u0a86 \u0a8d\u0aaa\u0acd\u0ab2\u0abf\u0a95\u0ac7\u0ab6\u0aa8 \u0aa7\u0acb\u0ab0\u0aa3 \u0ab6\u0acb\u0aa7\u0ab5\u0abe \u0aae\u0abe\u0a9f\u0ac7 \u0ab8\u0ab9\u0abe\u0aaf\u0a95 \u0a9b\u0ac7. \u0a86 \u0ab8\u0aa4\u0acd\u0aa4\u0abe\u0ab5\u0abe\u0ab0 BIS \u0ab8\u0ac7\u0ab5\u0abe \u0aa8\u0aa5\u0ac0.",
+        footerUpdated: "\u0a9b\u0ac7\u0ab2\u0acd\u0ab2\u0ac0 \u0ab8\u0aae\u0ac0\u0a95\u0acd\u0ab7\u0abe: 02 \u0aae\u0ac7 2026",
+        footerTop: "\u0ab6\u0acb\u0aa7 \u0aaa\u0ab0 \u0aaa\u0abe\u0a9b\u0abe \u0a9c\u0abe\u0a93"
+      },
+      kn: {
+        footerBis: "BIS \u0cb8\u0cc7\u0cb5\u0cc6\u0c97\u0cb3\u0cc1",
+        footerGov: "\u0cb8\u0cb0\u0ccd\u0c95\u0cbe\u0cb0\u0cbf \u0cb2\u0cbf\u0c82\u0c95\u0ccd\u0c97\u0cb3\u0cc1",
+        footerService: "\u0cb8\u0cc7\u0cb5\u0cc6 \u0caa\u0ccd\u0cb0\u0cb5\u0cc7\u0cb6",
+        footerNote: "\u0c88 \u0c85\u0caa\u0ccd\u0cb2\u0cbf\u0c95\u0cc7\u0cb6\u0ca8\u0ccd \u0cae\u0cbe\u0ca8\u0ca6\u0c82\u0ca1 \u0cb9\u0cc1\u0ca1\u0cc1\u0c95\u0cbe\u0c9f\u0c95\u0ccd\u0c95\u0cc6 \u0cb8\u0cb9\u0cbe\u0caf\u0cb5\u0cbe\u0c97\u0cbf\u0ca6\u0cc6. \u0c87\u0ca6\u0cc1 \u0c85\u0ca7\u0cbf\u0c95\u0cc3\u0ca4 BIS \u0cb8\u0cc7\u0cb5\u0cc6 \u0c85\u0cb2\u0ccd\u0cb2.",
+        footerUpdated: "\u0c95\u0cca\u0ca8\u0cc6\u0caf \u0caa\u0cb0\u0cbf\u0cb6\u0cc0\u0cb2\u0ca8\u0cc6: 02 \u0cae\u0cc7 2026",
+        footerTop: "\u0cb9\u0cc1\u0ca1\u0cc1\u0c95\u0cbe\u0c9f\u0c95\u0ccd\u0c95\u0cc6 \u0cb9\u0cbf\u0c82\u0ca4\u0cbf\u0cb0\u0cc1\u0c97\u0cbf"
+      },
+      ml: {
+        footerBis: "BIS \u0d38\u0d47\u0d35\u0d28\u0d19\u0d4d\u0d19\u0d7e",
+        footerGov: "\u0d38\u0d7c\u0d15\u0d4d\u0d15\u0d3e\u0d7c \u0d32\u0d3f\u0d19\u0d4d\u0d15\u0d41\u0d15\u0d7e",
+        footerService: "\u0d38\u0d47\u0d35\u0d28 \u0d05\u0d23\u0d41\u0d15\u0d7d",
+        footerNote: "\u0d08 \u0d06\u0d2a\u0d4d\u0d32\u0d3f\u0d15\u0d4d\u0d15\u0d47\u0d37\u0d7b \u0d38\u0d4d\u0d31\u0d4d\u0d31\u0d3e\u0d7b\u0d21\u0d47\u0d7c\u0d21\u0d4d \u0d24\u0d3f\u0d30\u0d1a\u0d4d\u0d1a\u0d3f\u0d32\u0d3f\u0d28\u0d41\u0d33\u0d4d\u0d33 \u0d38\u0d39\u0d3e\u0d2f\u0d2e\u0d3e\u0d23\u0d4d. \u0d07\u0d24\u0d4d \u0d14\u0d26\u0d4d\u0d2f\u0d4b\u0d17\u0d3f\u0d15 BIS \u0d38\u0d47\u0d35\u0d28\u0d02 \u0d05\u0d32\u0d4d\u0d32.",
+        footerUpdated: "\u0d05\u0d35\u0d38\u0d3e\u0d28 \u0d05\u0d35\u0d32\u0d4b\u0d15\u0d28\u0d02: 02 \u0d2e\u0d46\u0d2f\u0d4d 2026",
+        footerTop: "\u0d24\u0d3f\u0d30\u0d1a\u0d4d\u0d1a\u0d3f\u0d32\u0d3f\u0d32\u0d47\u0d15\u0d4d\u0d15\u0d4d \u0d2e\u0d1f\u0d19\u0d4d\u0d19\u0d41\u0d15"
+      },
+      pa: {
+        footerBis: "BIS \u0a38\u0a47\u0a35\u0a3e\u0a35\u0a3e\u0a02",
+        footerGov: "\u0a38\u0a30\u0a15\u0a3e\u0a30\u0a40 \u0a32\u0a3f\u0a70\u0a15",
+        footerService: "\u0a38\u0a47\u0a35\u0a3e \u0a2a\u0a39\u0a41\u0a70\u0a1a",
+        footerNote: "\u0a07\u0a39 \u0a10\u0a2a\u0a32\u0a40\u0a15\u0a47\u0a38\u0a3c\u0a28 \u0a2e\u0a3f\u0a06\u0a30 \u0a16\u0a4b\u0a1c \u0a32\u0a08 \u0a38\u0a39\u0a3e\u0a07\u0a24\u0a3e \u0a39\u0a48\u0964 \u0a07\u0a39 \u0a05\u0a27\u0a3f\u0a15\u0a3e\u0a30\u0a3f\u0a15 BIS \u0a38\u0a47\u0a35\u0a3e \u0a28\u0a39\u0a40\u0a02 \u0a39\u0a48\u0964",
+        footerUpdated: "\u0a06\u0a16\u0a30\u0a40 \u0a38\u0a2e\u0a40\u0a16\u0a3f\u0a06: 02 \u0a2e\u0a08 2026",
+        footerTop: "\u0a16\u0a4b\u0a1c \u0a35\u0a3f\u0a71\u0a1a \u0a35\u0a3e\u0a2a\u0a38"
+      },
+      ur: {
+        footerBis: "BIS \u062e\u062f\u0645\u0627\u062a",
+        footerGov: "\u0633\u0631\u06a9\u0627\u0631\u06cc \u0631\u0627\u0628\u0637\u06d2",
+        footerService: "\u0633\u0631\u0648\u0633 \u062a\u06a9 \u0631\u0633\u0627\u0626\u06cc",
+        footerNote: "\u06cc\u06c1 \u0627\u06cc\u067e\u0644\u06cc \u06a9\u06cc\u0634\u0646 \u0645\u0639\u06cc\u0627\u0631\u0627\u062a \u06a9\u06cc \u062f\u0631\u06cc\u0627\u0641\u062a \u06a9\u06d2 \u0644\u06cc\u06d2 \u0645\u0639\u0627\u0648\u0646 \u06c1\u06d2\u06d4 \u06cc\u06c1 \u0633\u0631\u06a9\u0627\u0631\u06cc BIS \u0633\u0631\u0648\u0633 \u0646\u06c1\u06cc\u06ba \u06c1\u06d2\u06d4",
+        footerUpdated: "\u0622\u062e\u0631\u06cc \u062c\u0627\u0626\u0632\u06c1: 02 \u0645\u0626\u06cc 2026",
+        footerTop: "\u062a\u0644\u0627\u0634 \u067e\u0631 \u0648\u0627\u067e\u0633"
+      }
+    };
+
+    Object.entries(footerTranslations).forEach(([lang, values]) => {
+      translations[lang] = { ...translations[lang], ...values };
+    });
 
     const form = document.querySelector("#recommendForm");
     const queryInput = document.querySelector("#query");
@@ -1281,8 +1524,7 @@ def _recommendation_items(codes: list[str], language: str = "en") -> list[dict[s
 
 
 def _external_standards(query: str, language: str = "en") -> list[dict[str, str]]:
-    normalized = " ".join(str(query or "").lower().split())
-    if "pencil" not in normalized:
+    if not is_out_of_scope_product(query):
         return []
     if language == "hi":
         first_rationale = (
@@ -1332,8 +1574,7 @@ def root() -> HTMLResponse:
     return HTMLResponse(INDEX_HTML)
 
 
-@app.get("/api/status")
-def status() -> dict[str, Any]:
+def _status_payload() -> dict[str, Any]:
     missing = _missing_artifacts()
     return {
         "service": "BIS Standards Recommendation Engine",
@@ -1341,22 +1582,200 @@ def status() -> dict[str, Any]:
         "endpoints": {
             "health": "/health",
             "recommend": "/recommend",
+            "developer_api": "/docs",
         },
         "missing_artifacts": missing,
     }
 
 
+def _status_html(payload: dict[str, Any]) -> str:
+    status_label = str(payload["status"])
+    missing = payload["missing_artifacts"]
+    missing_html = (
+        "<li>No missing service artifacts</li>"
+        if not missing
+        else "".join(f"<li>{escape(str(item))}</li>" for item in missing)
+    )
+    badge_class = "ready" if status_label == "ready" else "attention"
+    return f"""
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#08366f" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <title>Service Status | BIS Standards Recommendation Engine</title>
+  <style>
+    :root {{
+      --navy: #08366f;
+      --blue: #005ea8;
+      --saffron: #ff9933;
+      --green: #138808;
+      --paper: #f7f9fc;
+      --line: #d8e1ee;
+      --ink: #101828;
+      --muted: #526173;
+      --white: #ffffff;
+      --success: #067647;
+      --warning: #a15c07;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Noto Sans", "Segoe UI", Arial, sans-serif;
+      line-height: 1.5;
+    }}
+    .top {{ background: var(--navy); color: var(--white); font-size: 0.86rem; }}
+    .wrap {{ width: min(1120px, calc(100% - 32px)); margin: 0 auto; }}
+    .top .wrap, nav .wrap {{
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }}
+    nav {{
+      background: var(--white);
+      border-bottom: 1px solid var(--line);
+      box-shadow: 0 2px 16px rgba(16, 24, 40, 0.05);
+    }}
+    .brand {{ display: flex; align-items: center; gap: 12px; min-height: 74px; }}
+    .mark {{
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(180deg, var(--saffron) 0 32%, #fff 32% 66%, var(--green) 66% 100%);
+      color: var(--navy);
+      border: 2px solid var(--navy);
+      font-weight: 900;
+    }}
+    .brand strong {{ color: var(--navy); font-size: 1.05rem; }}
+    nav a {{ color: var(--navy); font-weight: 700; text-decoration: none; }}
+    main {{ padding: 42px 0 54px; }}
+    .panel {{
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 18px 50px rgba(8, 54, 111, 0.12);
+      overflow: hidden;
+    }}
+    .panel-head {{
+      border-top: 5px solid var(--saffron);
+      padding: 28px;
+      display: grid;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+    }}
+    h1 {{ margin: 0; color: var(--navy); font-size: clamp(1.6rem, 4vw, 2.5rem); letter-spacing: 0; }}
+    .lead {{ margin: 0; max-width: 760px; color: var(--muted); }}
+    .status-grid {{
+      display: grid;
+      grid-template-columns: minmax(220px, 0.8fr) 1.2fr;
+      gap: 24px;
+      padding: 28px;
+    }}
+    .badge {{
+      display: inline-flex;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 0.76rem;
+    }}
+    .badge.ready {{ background: #e8f7ef; color: var(--success); }}
+    .badge.attention {{ background: #fff4e5; color: var(--warning); }}
+    .detail {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      background: #fbfdff;
+    }}
+    .detail h2 {{ margin: 0 0 10px; color: var(--navy); font-size: 1rem; }}
+    .detail ul {{ margin: 0; padding-left: 18px; color: var(--muted); }}
+    .actions {{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }}
+    .actions a {{
+      border: 1px solid var(--blue);
+      border-radius: 6px;
+      padding: 9px 12px;
+      color: var(--blue);
+      font-weight: 800;
+      text-decoration: none;
+      background: var(--white);
+    }}
+    .actions a.primary {{ background: var(--blue); color: var(--white); }}
+    footer {{ background: #082f63; color: rgba(255, 255, 255, 0.84); padding: 18px 0; font-size: 0.86rem; }}
+    footer a {{ color: var(--white); }}
+    @media (max-width: 720px) {{
+      .top .wrap, nav .wrap {{ align-items: flex-start; flex-direction: column; padding: 10px 0; }}
+      .status-grid {{ grid-template-columns: 1fr; }}
+    }}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="top"><div class="wrap"><span>Government-style digital service</span><span>Service status</span></div></div>
+    <nav><div class="wrap"><div class="brand"><div class="mark">BIS</div><strong>BIS Standards Recommendation Engine</strong></div><a href="/">Back to search</a></div></nav>
+  </header>
+  <main class="wrap">
+    <section class="panel">
+      <div class="panel-head">
+        <span class="badge {badge_class}">{escape(status_label.replace("_", " "))}</span>
+        <h1>Service Status</h1>
+        <p class="lead">Operational summary for the recommendation service. The JSON health endpoint remains available for automated monitoring.</p>
+      </div>
+      <div class="status-grid">
+        <div class="detail">
+          <h2>Current status</h2>
+          <p><strong>{escape(status_label.replace("_", " ").title())}</strong></p>
+          <div class="actions">
+            <a class="primary" href="/">Search standards</a>
+            <a href="/docs">Developer API</a>
+          </div>
+        </div>
+        <div class="detail">
+          <h2>Artifact checks</h2>
+          <ul>{missing_html}</ul>
+          <div class="actions">
+            <a href="/health">View health JSON</a>
+            <a href="/api/status?format=json">View status JSON</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer><div class="wrap">Digital aid for BIS standards discovery. Validate final compliance decisions with official BIS documents and competent authorities.</div></footer>
+</body>
+</html>
+""".strip()
+
+
+@app.get("/api/status", response_model=None)
+def status(request: Request) -> Any:
+    payload = _status_payload()
+    wants_json = request.query_params.get("format") == "json"
+    accepts_html = "text/html" in request.headers.get("accept", "")
+    if accepts_html and not wants_json:
+        return HTMLResponse(_status_html(payload))
+    return payload
+
+
+@app.get("/favicon.svg", include_in_schema=False)
+def favicon_svg() -> Response:
+    return Response(content=FAVICON_SVG, media_type="image/svg+xml")
+
+
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon() -> Response:
-    svg = (
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
-        '<rect width="64" height="64" rx="12" fill="#08366f"/>'
-        '<path d="M10 18h44v8H10z" fill="#ff9933"/>'
-        '<path d="M10 38h44v8H10z" fill="#138808"/>'
-        '<text x="32" y="36" text-anchor="middle" font-family="Arial" '
-        'font-size="14" font-weight="700" fill="#fff">BIS</text></svg>'
-    )
-    return Response(content=svg, media_type="image/svg+xml")
+    return favicon_svg()
+
+
 
 
 @app.get("/health")
