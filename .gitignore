@@ -1,0 +1,11 @@
+__pycache__/
+.pytest_cache/
+*.pyc
+.venv/
+venv/
+
+# Generated Plan 02 artifacts
+data/faiss.index
+data/bm25.pkl
+data/codes.json
+data/standards_indexed.json
