@@ -33,6 +33,27 @@ python run.py --input public_test_set.json --output results.json --rebuild
 `--rebuild` parses `dataset.pdf` and rebuilds `data/standards_indexed.json`,
 `data/faiss.index`, `data/bm25.pkl`, and `data/codes.json`.
 
+## Business Compliance Assistant Demo
+
+The FastAPI app adds a demo-only Business Compliance Assistant around the
+retrieved standards:
+
+```bash
+uvicorn app:app --reload
+```
+
+`POST /recommend` keeps the retrieved IS codes and rationale, then adds
+`business_guidance` with matched category, matched terms, why the standards
+match, documents to prepare, testing readiness, workflow, and verification
+notes. This is separate from `inference.py`, which remains deterministic,
+fast, API-free, and judge-schema compatible.
+
+If `GROQ_API_KEY` is present, the app may use Groq to polish the business
+guidance. If the key is missing or the call fails, it falls back to deterministic
+template guidance. Guardrails require guidance to mention only returned IS
+codes, avoid invented fees/timelines/forms/legal claims, and tell users to
+verify with BIS.
+
 ## Evaluate
 
 ```bash
@@ -72,7 +93,13 @@ query
   -> src.retriever -> fused candidate ranking with deterministic boosts
   -> src.reranker optional cross-encoder reranking
   -> run.py -> results.json
+  -> app.py -> demo rationale and business guidance
 ```
+
+Retrieval innovation includes PDF parsing into a structured catalogue, custom
+chunking by IS code/title/scope/body, synonym and multilingual query expansion,
+BM25/FAISS-ready hybrid retrieval, deterministic boosts for product families and
+explicit IS codes, and robustness evaluation across multilingual/noisy queries.
 
 ## Tests
 

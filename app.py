@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import json
+import os
 import re
+import urllib.error
+import urllib.request
 from functools import lru_cache
 from html import escape
 from pathlib import Path
@@ -54,12 +58,24 @@ class ExternalStandard(BaseModel):
     source_url: str
 
 
+class BusinessGuidance(BaseModel):
+    matched_category: str
+    matched_terms: list[str]
+    why_these_standards: list[str]
+    documents_to_prepare: list[str]
+    testing_lab_readiness: list[str]
+    bis_workflow: list[str]
+    verification_notes: list[str]
+    ai_generated: bool = False
+
+
 class RecommendationResponse(BaseModel):
     query: str
     retrieved_standards: list[str]
     latency_seconds: float
     compliance_warnings: list[str]
     recommendations: list[RecommendationItem]
+    business_guidance: BusinessGuidance
     out_of_scope: bool = False
     external_standards: list[ExternalStandard] = Field(default_factory=list)
 
@@ -82,7 +98,7 @@ INDEX_HTML = """
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BIS Standards Recommendation Engine</title>
+  <title>Business Compliance Assistant | BIS Standards</title>
   <meta name="theme-color" content="#08366f" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="alternate icon" href="/favicon.ico" />
@@ -108,6 +124,7 @@ INDEX_HTML = """
       --white: #ffffff;
       --success: #067647;
       --warning: #a15c07;
+      --info: #175cd3;
       --shadow: 0 18px 50px rgba(8, 54, 111, 0.14);
       --radius: 8px;
       --max: 1180px;
@@ -646,6 +663,73 @@ INDEX_HTML = """
       font-size: 0.86rem;
     }
 
+    .guidance {
+      display: grid;
+      gap: 14px;
+      padding: 18px 20px;
+    }
+
+    .assistant-panel {
+      border-top: 4px solid var(--india-green);
+    }
+
+    .assistant-empty {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .guidance-card {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfdff;
+      padding: 12px;
+    }
+
+    .guidance-card h3 {
+      margin: 0 0 8px;
+      color: var(--gov-navy);
+      font-size: 0.9rem;
+    }
+
+    .guidance-card p,
+    .guidance-card ul {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .guidance-card ul {
+      padding-left: 18px;
+    }
+
+    .term-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .term-pill {
+      border: 1px solid rgba(0, 94, 168, 0.22);
+      border-radius: 999px;
+      background: var(--gov-blue-2);
+      color: var(--gov-navy);
+      padding: 5px 9px;
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .guidance-source {
+      display: inline-flex;
+      width: fit-content;
+      border-radius: 999px;
+      background: #e8f1ff;
+      color: var(--info);
+      padding: 5px 9px;
+      font-size: 0.76rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
     footer {
       border-top: 1px solid var(--line);
       background: #082f63;
@@ -825,7 +909,7 @@ INDEX_HTML = """
         <div class="brand">
           <div class="emblem" aria-hidden="true">BIS</div>
           <div>
-            <p class="brand-title" data-i18n="footerTitle">BIS Standards Recommendation Engine</p>
+            <p class="brand-title" data-i18n="footerTitle">Business Compliance Assistant</p>
             <p class="brand-subtitle" data-i18n="brandSubtitle">Bureau of Indian Standards lookup for manufacturing enterprises</p>
           </div>
         </div>
@@ -844,8 +928,8 @@ INDEX_HTML = """
       <div class="hero-inner">
         <div>
           <div class="eyebrow" data-i18n="eyebrow">BIS Digital Service</div>
-          <h1 id="hero-title" data-i18n="heroTitle">Search applicable Indian Standards for your product.</h1>
-          <p class="hero-copy" data-i18n="heroCopy">Enter the product name, material, grade, and intended use. This service searches available BIS catalogue records and provides relevant Indian Standards for guidance.</p>
+          <h1 id="hero-title" data-i18n="heroTitle">Business Compliance Assistant for BIS standards.</h1>
+          <p class="hero-copy" data-i18n="heroCopy">Enter a messy product description. The assistant retrieves relevant Indian Standards, explains why they match, and lists practical next steps to verify with BIS.</p>
         </div>
         <aside class="service-card" aria-label="service status">
           <h2 data-i18n="serviceStatusTitle">Service status</h2>
@@ -878,6 +962,16 @@ INDEX_HTML = """
             <div class="metric"><strong>&lt;5s</strong><span data-i18n="metricThree">Typical search target</span></div>
           </div>
         </form>
+
+        <section class="results assistant-panel" aria-live="polite">
+          <div class="results-header">
+            <h2 data-assistant-i18n="title">Business Compliance Assistant</h2>
+            <span class="latency" data-assistant-i18n="ready">Next steps</span>
+          </div>
+          <div id="guidanceBody" class="guidance assistant-empty">
+            <p data-assistant-i18n="empty">Run a standards search to view matched category, key terms, document readiness, testing readiness, and verification notes.</p>
+          </div>
+        </section>
 
         <section class="results" id="results" aria-live="polite">
           <div class="results-header">
@@ -916,7 +1010,7 @@ INDEX_HTML = """
     <div class="wrap footer-inner">
       <div class="footer-brand">
         <div class="footer-mark" aria-hidden="true">BIS</div>
-        <strong data-i18n="footerTitle">BIS Standards Recommendation Engine</strong>
+        <strong data-i18n="footerTitle">Business Compliance Assistant</strong>
         <p data-i18n="footer">Digital aid for BIS standards discovery. Validate final compliance decisions with official BIS documents and competent authorities.</p>
       </div>
       <div class="footer-links">
@@ -969,8 +1063,8 @@ INDEX_HTML = """
       navStatus: "Service Status",
       navDocs: "Developer API",
       eyebrow: "BIS Digital Service",
-      heroTitle: "Search applicable Indian Standards for your product.",
-      heroCopy: "Enter the product name, material, grade, and intended use. This service searches available BIS catalogue records and provides relevant Indian Standards for guidance.",
+      heroTitle: "Business Compliance Assistant for BIS standards.",
+      heroCopy: "Enter a messy product description. The assistant retrieves relevant Indian Standards, explains why they match, and lists practical next steps to verify with BIS.",
       serviceStatusTitle: "Service status",
       serviceStatusCopy: "Digital assistance for standards discovery. Final compliance decisions should be verified with official BIS documents.",
       statusOk: "OK",
@@ -1003,7 +1097,7 @@ INDEX_HTML = """
       stepThree: "Verify requirements on the official BIS portal before certification action.",
       advisoryTitle: "Important advisory",
       advisoryCopy: "This digital service supports standards discovery. It does not replace official BIS standards, certification rules, testing requirements, or expert assessment.",
-      footerTitle: "BIS Standards Recommendation Engine",
+      footerTitle: "Business Compliance Assistant",
       footerBis: "BIS services",
       footerGov: "Government links",
       footerService: "Service access",
@@ -1045,8 +1139,8 @@ INDEX_HTML = """
         navStatus: "सेवा स्थिति",
         navDocs: "डेवलपर API",
         eyebrow: "BIS डिजिटल सेवा",
-        heroTitle: "अपने उत्पाद के लिए लागू भारतीय मानक खोजें।",
-        heroCopy: "उत्पाद का नाम, सामग्री, ग्रेड और उपयोग दर्ज करें। यह सेवा उपलब्ध BIS कैटलॉग रिकॉर्ड खोजकर संबंधित भारतीय मानक बताती है।",
+        heroTitle: "BIS मानकों के लिए व्यावसायिक अनुपालन सहायक।",
+        heroCopy: "अव्यवस्थित उत्पाद विवरण दर्ज करें। सहायक संबंधित भारतीय मानक खोजता है, मिलान का कारण बताता है, और BIS से सत्यापित करने के लिए व्यावहारिक अगले कदम देता है।",
         serviceStatusTitle: "सेवा स्थिति",
         serviceStatusCopy: "मानक खोज के लिए डिजिटल सहायता। अंतिम अनुपालन निर्णय आधिकारिक BIS दस्तावेजों से सत्यापित करें।",
         statusOne: "BIS कैटलॉग रिकॉर्ड लोड हैं",
@@ -1091,8 +1185,8 @@ INDEX_HTML = """
         navStatus: "Service Status",
         navDocs: "Developer API",
         eyebrow: "BIS Digital Seva",
-        heroTitle: "Apne product ke liye applicable Indian Standards search karein.",
-        heroCopy: "Product ka naam, material, grade aur use likhein. Service available BIS catalogue records se relevant Indian Standards guidance deti hai.",
+        heroTitle: "BIS standards ke liye Business Compliance Assistant.",
+        heroCopy: "Messy product description enter karein. Assistant relevant Indian Standards retrieve karta hai, match ka reason batata hai, aur BIS se verify karne ke practical next steps deta hai.",
         serviceStatusTitle: "Service status",
         serviceStatusCopy: "Standards discovery ke liye digital sahayata. Final compliance decision official BIS documents se verify karein.",
         statusOne: "BIS catalogue records loaded",
@@ -1316,7 +1410,7 @@ INDEX_HTML = """
         recommendationFailed: "अनुशंसा प्राप्त नहीं हो सकी",
         pencilWarning: "ग्रेफाइट या ब्लैक लेड पेंसिल वर्तमान BIS SP 21 निर्माण-सामग्री कैटलॉग से बाहर हैं। पेंसिल से संबंधित IS 1375:2021 और IS 2079:2022 जैसे BIS मानक सत्यापित करें।",
         edibleOilWarning: "खाद्य तेल वर्तमान BIS SP 21 निर्माण-सामग्री कैटलॉग से बाहर है। तेल और वसा से संबंधित IS 548 और संबंधित तेल-प्रकार विनिर्देश देखें।",
-        footerTitle: "BIS मानक अनुशंसा इंजन",
+        footerTitle: "व्यावसायिक अनुपालन सहायक",
         footerBis: "BIS सेवाएं",
         footerGov: "सरकारी लिंक",
         footerService: "सेवा पहुंच",
@@ -1363,7 +1457,7 @@ INDEX_HTML = """
         verifyBis: "BIS preview par verify karein",
         pencilWarning: "Graphite ya black lead pencils bundled BIS SP 21 building-materials catalogue ke bahar hain. Pencil-specific BIS standards jaise IS 1375:2021 aur IS 2079:2022 verify karein.",
         edibleOilWarning: "Edible oil bundled BIS SP 21 building-materials catalogue ke bahar hai. Oils and fats ke liye IS 548 aur relevant oil-type specification dekhein.",
-        footerTitle: "BIS Standards Recommendation Engine",
+        footerTitle: "Business Compliance Assistant",
         footerBis: "BIS sevayen",
         footerGov: "Sarkari links",
         footerService: "Seva access",
@@ -1423,7 +1517,7 @@ INDEX_HTML = """
         stepThree: "সার্টিফিকেশন পদক্ষেপের আগে সরকারি BIS পোর্টালে প্রয়োজনীয়তা যাচাই করুন।",
         advisoryTitle: "গুরুত্বপূর্ণ পরামর্শ",
         advisoryCopy: "এই ডিজিটাল পরিষেবা মান অনুসন্ধানে সহায়তা করে। এটি সরকারি BIS মান, সার্টিফিকেশন নিয়ম, পরীক্ষা প্রয়োজনীয়তা বা বিশেষজ্ঞ মূল্যায়নের বিকল্প নয়।",
-        footerTitle: "BIS মান সুপারিশ ইঞ্জিন",
+        footerTitle: "Business Compliance Assistant",
         footerBis: "BIS পরিষেবা",
         footerGov: "সরকারি লিঙ্ক",
         footerService: "পরিষেবা প্রবেশ",
@@ -1488,7 +1582,7 @@ INDEX_HTML = """
         stepThree: "சான்றிதழ் நடவடிக்கைக்கு முன் அதிகாரப்பூர்வ BIS தளத்தில் தேவைகளை சரிபார்க்கவும்.",
         advisoryTitle: "முக்கிய அறிவுரை",
         advisoryCopy: "இந்த டிஜிட்டல் சேவை தர தேடலுக்கு உதவுகிறது. இது அதிகாரப்பூர்வ BIS தரங்கள், சான்றிதழ் விதிகள், சோதனை தேவைகள் அல்லது நிபுணர் மதிப்பீட்டிற்கு மாற்றாகாது.",
-        footerTitle: "BIS தர பரிந்துரை இயந்திரம்",
+        footerTitle: "Business Compliance Assistant",
         footerBis: "BIS சேவைகள்",
         footerGov: "அரசு இணைப்புகள்",
         footerService: "சேவை அணுகல்",
@@ -1553,7 +1647,7 @@ INDEX_HTML = """
         stepThree: "సర్టిఫికేషన్ చర్యకు ముందు అధికారిక BIS పోర్టల్‌లో అవసరాలను ధృవీకరించండి.",
         advisoryTitle: "ముఖ్య సూచన",
         advisoryCopy: "ఈ డిజిటల్ సేవ ప్రమాణాల శోధనకు సహాయం చేస్తుంది. ఇది అధికారిక BIS ప్రమాణాలు, సర్టిఫికేషన్ నియమాలు, పరీక్ష అవసరాలు లేదా నిపుణుల అంచనాకు ప్రత్యామ్నాయం కాదు.",
-        footerTitle: "BIS ప్రమాణాల సిఫార్సు ఇంజిన్",
+        footerTitle: "Business Compliance Assistant",
         footerBis: "BIS సేవలు",
         footerGov: "ప్రభుత్వ లింకులు",
         footerService: "సేవ ప్రవేశం",
@@ -1618,7 +1712,7 @@ INDEX_HTML = """
         stepThree: "प्रमाणन कृतीपूर्वी अधिकृत BIS पोर्टलवर आवश्यकता पडताळा.",
         advisoryTitle: "महत्त्वाची सूचना",
         advisoryCopy: "ही डिजिटल सेवा मानक शोधासाठी मदत करते. ती अधिकृत BIS मानके, प्रमाणन नियम, चाचणी आवश्यकता किंवा तज्ज्ञ मूल्यांकनाची जागा घेत नाही.",
-        footerTitle: "BIS मानक शिफारस इंजिन",
+        footerTitle: "Business Compliance Assistant",
         footerBis: "BIS सेवा",
         footerGov: "शासकीय दुवे",
         footerService: "सेवा प्रवेश",
@@ -1683,7 +1777,7 @@ INDEX_HTML = """
         stepThree: "પ્રમાણન કાર્યવાહી પહેલાં સત્તાવાર BIS પોર્ટલ પર આવશ્યકતાઓ ચકાસો.",
         advisoryTitle: "મહત્વપૂર્ણ સલાહ",
         advisoryCopy: "આ ડિજિટલ સેવા ધોરણ શોધમાં મદદ કરે છે. તે સત્તાવાર BIS ધોરણો, પ્રમાણન નિયમો, પરીક્ષણ આવશ્યકતાઓ અથવા નિષ્ણાત મૂલ્યાંકનનો વિકલ્પ નથી.",
-        footerTitle: "BIS ધોરણ ભલામણ એન્જિન",
+        footerTitle: "Business Compliance Assistant",
         footerBis: "BIS સેવાઓ",
         footerGov: "સરકારી લિંક્સ",
         footerService: "સેવા ઍક્સેસ",
@@ -1748,7 +1842,7 @@ INDEX_HTML = """
         stepThree: "ಪ್ರಮಾಣೀಕರಣ ಕ್ರಮಕ್ಕೂ ಮೊದಲು ಅಧಿಕೃತ BIS ಪೋರ್ಟಲ್‌ನಲ್ಲಿ ಅವಶ್ಯಕತೆಗಳನ್ನು ಪರಿಶೀಲಿಸಿ.",
         advisoryTitle: "ಮುಖ್ಯ ಸಲಹೆ",
         advisoryCopy: "ಈ ಡಿಜಿಟಲ್ ಸೇವೆ ಮಾನದಂಡ ಹುಡುಕಾಟಕ್ಕೆ ಸಹಾಯ ಮಾಡುತ್ತದೆ. ಇದು ಅಧಿಕೃತ BIS ಮಾನದಂಡಗಳು, ಪ್ರಮಾಣೀಕರಣ ನಿಯಮಗಳು, ಪರೀಕ್ಷಾ ಅವಶ್ಯಕತೆಗಳು ಅಥವಾ ಪರಿಣಿತರ ಮೌಲ್ಯಮಾಪನಕ್ಕೆ ಪರ್ಯಾಯವಲ್ಲ.",
-        footerTitle: "BIS ಮಾನದಂಡ ಶಿಫಾರಸು ಎಂಜಿನ್",
+        footerTitle: "Business Compliance Assistant",
         footerBis: "BIS ಸೇವೆಗಳು",
         footerGov: "ಸರ್ಕಾರಿ ಲಿಂಕ್‌ಗಳು",
         footerService: "ಸೇವೆಯ ಪ್ರವೇಶ",
@@ -1813,7 +1907,7 @@ INDEX_HTML = """
         stepThree: "സർട്ടിഫിക്കേഷൻ നടപടിക്ക് മുമ്പ് ഔദ്യോഗിക BIS പോർട്ടലിൽ ആവശ്യകതകൾ പരിശോധിക്കുക.",
         advisoryTitle: "പ്രധാന ഉപദേശം",
         advisoryCopy: "ഈ ഡിജിറ്റൽ സേവനം സ്റ്റാൻഡേർഡ് കണ്ടെത്തലിന് സഹായിക്കുന്നു. ഇത് ഔദ്യോഗിക BIS സ്റ്റാൻഡേർഡുകൾ, സർട്ടിഫിക്കേഷൻ നിയമങ്ങൾ, പരിശോധന ആവശ്യകതകൾ അല്ലെങ്കിൽ വിദഗ്ധ വിലയിരുത്തൽ എന്നിവയ്ക്ക് പകരമല്ല.",
-        footerTitle: "BIS സ്റ്റാൻഡേർഡ് ശുപാർശ എഞ്ചിൻ",
+        footerTitle: "Business Compliance Assistant",
         footerBis: "BIS സേവനങ്ങൾ",
         footerGov: "സർക്കാർ ലിങ്കുകൾ",
         footerService: "സേവന പ്രവേശനം",
@@ -1878,7 +1972,7 @@ INDEX_HTML = """
         stepThree: "ਸਰਟੀਫਿਕੇਸ਼ਨ ਕਾਰਵਾਈ ਤੋਂ ਪਹਿਲਾਂ ਅਧਿਕਾਰਤ BIS ਪੋਰਟਲ ਤੇ ਲੋੜਾਂ ਪੱਕੀਆਂ ਕਰੋ।",
         advisoryTitle: "ਮਹੱਤਵਪੂਰਨ ਸਲਾਹ",
         advisoryCopy: "ਇਹ ਡਿਜ਼ਿਟਲ ਸੇਵਾ ਮਿਆਰ ਖੋਜ ਵਿੱਚ ਸਹਾਇਤਾ ਕਰਦੀ ਹੈ। ਇਹ ਅਧਿਕਾਰਤ BIS ਮਿਆਰਾਂ, ਸਰਟੀਫਿਕੇਸ਼ਨ ਨਿਯਮਾਂ, ਟੈਸਟ ਲੋੜਾਂ ਜਾਂ ਮਾਹਰ ਅੰਦਾਜ਼ੇ ਦਾ ਬਦਲ ਨਹੀਂ ਹੈ।",
-        footerTitle: "BIS ਮਿਆਰ ਸਿਫ਼ਾਰਸ਼ ਇੰਜਨ",
+        footerTitle: "Business Compliance Assistant",
         footerBis: "BIS ਸੇਵਾਵਾਂ",
         footerGov: "ਸਰਕਾਰੀ ਲਿੰਕ",
         footerService: "ਸੇਵਾ ਪਹੁੰਚ",
@@ -1943,7 +2037,7 @@ INDEX_HTML = """
         stepThree: "سرٹیفیکیشن کارروائی سے پہلے سرکاری BIS پورٹل پر ضروریات کی تصدیق کریں۔",
         advisoryTitle: "اہم مشورہ",
         advisoryCopy: "یہ ڈیجیٹل سروس معیارات کی تلاش میں مدد کرتی ہے۔ یہ سرکاری BIS معیارات، سرٹیفیکیشن قواعد، ٹیسٹنگ ضروریات یا ماہر تشخیص کا بدل نہیں ہے۔",
-        footerTitle: "BIS معیارات سفارش انجن",
+        footerTitle: "Business Compliance Assistant",
         footerBis: "BIS خدمات",
         footerGov: "سرکاری رابطے",
         footerService: "سروس تک رسائی",
@@ -1973,6 +2067,60 @@ INDEX_HTML = """
       }
     };
 
+    const assistantText = {
+      en: {
+        title: "Business Compliance Assistant",
+        ready: "Next steps",
+        empty: "Run a standards search to view matched category, key terms, document readiness, testing readiness, and verification notes.",
+        fallback: "Verify with BIS before taking action.",
+        sourceAi: "AI-assisted",
+        sourceDeterministic: "Deterministic",
+        categoryTitle: "Matched product category",
+        categoryFallback: "Catalogue match requires BIS verification.",
+        termsTitle: "Key matched terms",
+        termsFallback: "Review the returned catalogue titles and verify with BIS.",
+        whyTitle: "Why these standards match",
+        documentsTitle: "Documents to prepare",
+        testingTitle: "Testing and lab readiness",
+        workflowTitle: "BIS certification workflow",
+        notesTitle: "Warnings and verification notes"
+      },
+      hi: {
+        title: "व्यावसायिक अनुपालन सहायक",
+        ready: "अगले कदम",
+        empty: "मिलान श्रेणी, मुख्य शब्द, दस्तावेज़ तैयारी, परीक्षण तैयारी और सत्यापन नोट देखने के लिए मानक खोज चलाएँ।",
+        fallback: "कार्रवाई से पहले BIS से सत्यापित करें।",
+        sourceAi: "AI-सहायता प्राप्त",
+        sourceDeterministic: "नियम-आधारित",
+        categoryTitle: "मिलान उत्पाद श्रेणी",
+        categoryFallback: "कैटलॉग मिलान के लिए BIS सत्यापन आवश्यक है।",
+        termsTitle: "मुख्य मिलान शब्द",
+        termsFallback: "लौटाए गए कैटलॉग शीर्षक देखें और BIS से सत्यापित करें।",
+        whyTitle: "ये मानक क्यों मेल खाते हैं",
+        documentsTitle: "तैयार करने वाले दस्तावेज़",
+        testingTitle: "परीक्षण और लैब तैयारी",
+        workflowTitle: "BIS प्रमाणन कार्यप्रवाह",
+        notesTitle: "चेतावनी और सत्यापन नोट"
+      },
+      hinglish: {
+        title: "Business Compliance Assistant",
+        ready: "Next steps",
+        empty: "Matched category, key terms, documents, testing readiness aur verification notes dekhne ke liye standards search chalayein.",
+        fallback: "Action lene se pehle BIS se verify karein.",
+        sourceAi: "AI-assisted",
+        sourceDeterministic: "Rule-based",
+        categoryTitle: "Matched product category",
+        categoryFallback: "Catalogue match ko BIS se verify karna zaroori hai.",
+        termsTitle: "Key matched terms",
+        termsFallback: "Returned catalogue titles review karein aur BIS se verify karein.",
+        whyTitle: "Ye standards kyun match hue",
+        documentsTitle: "Documents prepare karein",
+        testingTitle: "Testing aur lab readiness",
+        workflowTitle: "BIS certification workflow",
+        notesTitle: "Warnings aur verification notes"
+      }
+    };
+
     Object.entries(localeCompletion).forEach(([lang, values]) => {
       translations[lang] = { ...translations[lang], ...values };
     });
@@ -1983,6 +2131,7 @@ INDEX_HTML = """
     const resultBody = document.querySelector("#resultBody");
     const latency = document.querySelector("#latency");
     const warnings = document.querySelector("#warnings");
+    const guidanceBody = document.querySelector("#guidanceBody");
     const languageSelect = document.querySelector("#languageSelect");
     let currentLang = "en";
     let latestResultData = null;
@@ -1998,6 +2147,10 @@ INDEX_HTML = """
 
     function t(key) {
       return (translations[currentLang] && translations[currentLang][key]) || baseText[key] || key;
+    }
+
+    function a(key) {
+      return (assistantText[currentLang] && assistantText[currentLang][key]) || assistantText.en[key] || key;
     }
 
     function bisPortalSearchUrl(code) {
@@ -2018,6 +2171,10 @@ INDEX_HTML = """
         node.textContent = t(node.dataset.i18n);
       });
 
+      document.querySelectorAll("[data-assistant-i18n]").forEach((node) => {
+        node.textContent = a(node.dataset.assistantI18n);
+      });
+
       document.querySelectorAll("[data-sample]").forEach((button) => {
         const key = button.dataset.sample;
         button.textContent = t(`sample${key[0].toUpperCase()}${key.slice(1)}Label`);
@@ -2035,6 +2192,8 @@ INDEX_HTML = """
       }
       if (latestResultData) {
         renderResults(latestResultData);
+      } else {
+        renderGuidance(null);
       }
     }
 
@@ -2057,10 +2216,63 @@ INDEX_HTML = """
       return warning;
     }
 
+    function listItems(items) {
+      const safeItems = (items || []).filter(Boolean);
+      if (!safeItems.length) return `<p>${escapeHtml(a("fallback"))}</p>`;
+      return `<ul>${safeItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+    }
+
+    function renderGuidance(guidance) {
+      if (!guidance) {
+        guidanceBody.className = "guidance assistant-empty";
+        guidanceBody.innerHTML = `<p>${escapeHtml(a("empty"))}</p>`;
+        return;
+      }
+      const terms = guidance.matched_terms || [];
+      const source = guidance.ai_generated ? a("sourceAi") : a("sourceDeterministic");
+      guidanceBody.className = "guidance";
+      guidanceBody.innerHTML = `
+        <span class="guidance-source">${escapeHtml(source)}</span>
+        <div class="guidance-card">
+          <h3>${escapeHtml(a("categoryTitle"))}</h3>
+          <p>${escapeHtml(guidance.matched_category || a("categoryFallback"))}</p>
+        </div>
+        <div class="guidance-card">
+          <h3>${escapeHtml(a("termsTitle"))}</h3>
+          ${
+            terms.length
+              ? `<div class="term-list">${terms.map((term) => `<span class="term-pill">${escapeHtml(term)}</span>`).join("")}</div>`
+              : `<p>${escapeHtml(a("termsFallback"))}</p>`
+          }
+        </div>
+        <div class="guidance-card">
+          <h3>${escapeHtml(a("whyTitle"))}</h3>
+          ${listItems(guidance.why_these_standards)}
+        </div>
+        <div class="guidance-card">
+          <h3>${escapeHtml(a("documentsTitle"))}</h3>
+          ${listItems(guidance.documents_to_prepare)}
+        </div>
+        <div class="guidance-card">
+          <h3>${escapeHtml(a("testingTitle"))}</h3>
+          ${listItems(guidance.testing_lab_readiness)}
+        </div>
+        <div class="guidance-card">
+          <h3>${escapeHtml(a("workflowTitle"))}</h3>
+          ${listItems(guidance.bis_workflow)}
+        </div>
+        <div class="guidance-card">
+          <h3>${escapeHtml(a("notesTitle"))}</h3>
+          ${listItems(guidance.verification_notes)}
+        </div>
+      `;
+    }
+
     function renderResults(data) {
       latestResultData = data;
       latency.textContent = `${Number(data.latency_seconds || 0).toFixed(3)}s`;
       renderWarnings(data.compliance_warnings);
+      renderGuidance(data.business_guidance);
       const recommendations = data.recommendations || [];
       const external = data.external_standards || [];
       if (!recommendations.length && external.length) {
@@ -2246,6 +2458,264 @@ def _recommendation_items(codes: list[str], language: str = "en") -> list[dict[s
             }
         )
     return items
+
+
+GUIDANCE_TOKEN_PATTERN = re.compile(r"[a-z0-9]{3,}", re.IGNORECASE)
+GUIDANCE_IS_CODE_PATTERN = re.compile(
+    r"\bIS\s*\d{2,5}(?:\s*\(\s*Part\s*\d+(?:\s*/\s*Sec\s*\d+)?\s*\))?\s*[:\-]\s*\d{4}",
+    re.IGNORECASE,
+)
+GUIDANCE_STOP_WORDS = {
+    "and",
+    "are",
+    "for",
+    "from",
+    "indian",
+    "into",
+    "make",
+    "material",
+    "product",
+    "standard",
+    "standards",
+    "the",
+    "use",
+    "we",
+    "which",
+    "with",
+}
+GENERIC_DOCUMENTS = [
+    "Product description with material, grade, dimensions, and intended use.",
+    "Manufacturing process note and quality-control checkpoints.",
+    "Raw material specifications and supplier records.",
+    "Batch or lot identification records for samples submitted for testing.",
+]
+GENERIC_TESTING_READINESS = [
+    "Shortlist BIS-recognized or otherwise competent labs for the returned standards.",
+    "Prepare representative samples and retain traceability to production lots.",
+    "Compare test parameters against the official standard text before submission.",
+]
+GENERIC_BIS_WORKFLOW = [
+    "Confirm the applicable standard on the official BIS portal.",
+    "Map product variants and grades to the returned IS codes.",
+    "Prepare documents and test evidence before starting certification activity.",
+    "Use Manak Online or the relevant BIS channel for the official process.",
+]
+VERIFY_WITH_BIS_NOTE = (
+    "Verify with BIS before relying on this guidance for certification, testing, fees, timelines, "
+    "or legal compliance."
+)
+
+
+def _tokenize_guidance_text(text: str) -> list[str]:
+    return [token.lower() for token in GUIDANCE_TOKEN_PATTERN.findall(str(text or ""))]
+
+
+def _matched_terms(query: str, recommendations: list[dict[str, Any]], limit: int = 8) -> list[str]:
+    query_tokens = set(_tokenize_guidance_text(query))
+    if not query_tokens:
+        return []
+    matched: list[str] = []
+    for item in recommendations:
+        text = " ".join(str(item.get(field) or "") for field in ("title", "rationale", "code"))
+        item_tokens = set(_tokenize_guidance_text(text))
+        for token in sorted(query_tokens & item_tokens):
+            if token not in GUIDANCE_STOP_WORDS and token not in matched:
+                matched.append(token)
+                if len(matched) >= limit:
+                    return matched
+    return matched
+
+
+def _matched_category(query: str, recommendations: list[dict[str, Any]]) -> str:
+    query_tokens = set(_tokenize_guidance_text(query))
+    category_rules = (
+        (("cement", "opc", "ppc", "portland"), "Cement and cementitious building material"),
+        (("aggregate", "aggregates", "sand", "gravel"), "Concrete aggregates and granular material"),
+        (("pipe", "pipes", "water", "mains"), "Concrete pipes and drainage/water infrastructure"),
+        (("block", "blocks", "masonry"), "Masonry units and concrete blocks"),
+        (("sheet", "roof", "roofing", "cladding"), "Roofing and cladding material"),
+        (("steel", "tmt", "reinforcement", "reinforced", "bar", "bars"), "Steel and reinforcement product"),
+    )
+    for terms, category in category_rules:
+        if any(term in query_tokens for term in terms):
+            return category
+    if recommendations:
+        return str(recommendations[0].get("title") or "BIS catalogue product family")
+    return "No current catalogue match"
+
+
+def _fallback_business_guidance(
+    query: str,
+    retrieved_codes: list[str],
+    recommendations: list[dict[str, Any]],
+    out_of_scope: bool,
+) -> dict[str, Any]:
+    if out_of_scope or not retrieved_codes:
+        return {
+            "matched_category": "Outside current catalogue or no returned standard",
+            "matched_terms": [
+                token for token in _tokenize_guidance_text(query) if token not in GUIDANCE_STOP_WORDS
+            ][:5],
+            "why_these_standards": [],
+            "documents_to_prepare": [],
+            "testing_lab_readiness": [],
+            "bis_workflow": ["Verify the product category and applicable standards directly with BIS."],
+            "verification_notes": [VERIFY_WITH_BIS_NOTE],
+            "ai_generated": False,
+        }
+
+    why = []
+    for index, item in enumerate(recommendations, start=1):
+        code = str(item.get("code") or retrieved_codes[index - 1])
+        title = str(item.get("title") or "BIS catalogue standard")
+        why.append(f"Rank {index}: {code} matched the catalogue title/scope for {title}.")
+
+    return {
+        "matched_category": _matched_category(query, recommendations),
+        "matched_terms": _matched_terms(query, recommendations),
+        "why_these_standards": why,
+        "documents_to_prepare": GENERIC_DOCUMENTS,
+        "testing_lab_readiness": GENERIC_TESTING_READINESS,
+        "bis_workflow": GENERIC_BIS_WORKFLOW,
+        "verification_notes": [
+            "Only the returned IS codes are used in this guidance.",
+            VERIFY_WITH_BIS_NOTE,
+        ],
+        "ai_generated": False,
+    }
+
+
+def _strings_in_guidance(guidance: dict[str, Any]) -> list[str]:
+    strings: list[str] = []
+    for key in (
+        "matched_category",
+        "matched_terms",
+        "why_these_standards",
+        "documents_to_prepare",
+        "testing_lab_readiness",
+        "bis_workflow",
+        "verification_notes",
+    ):
+        value = guidance.get(key)
+        if isinstance(value, str):
+            strings.append(value)
+        elif isinstance(value, list):
+            strings.extend(str(item) for item in value)
+    return strings
+
+
+def _guidance_mentions_only_allowed_codes(guidance: dict[str, Any], allowed_codes: set[str]) -> bool:
+    for text in _strings_in_guidance(guidance):
+        for match in GUIDANCE_IS_CODE_PATTERN.findall(text):
+            if normalize_standard_code(match) not in allowed_codes:
+                return False
+    return True
+
+
+def _normalize_guidance_payload(payload: Any, allowed_codes: set[str]) -> dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+    normalized: dict[str, Any] = {
+        "matched_category": str(payload.get("matched_category") or "BIS catalogue product family")[:140],
+        "matched_terms": [str(item)[:48] for item in payload.get("matched_terms") or []][:8],
+        "why_these_standards": [str(item)[:220] for item in payload.get("why_these_standards") or []][:5],
+        "documents_to_prepare": [str(item)[:180] for item in payload.get("documents_to_prepare") or []][:5],
+        "testing_lab_readiness": [str(item)[:180] for item in payload.get("testing_lab_readiness") or []][:5],
+        "bis_workflow": [str(item)[:180] for item in payload.get("bis_workflow") or []][:5],
+        "verification_notes": [str(item)[:220] for item in payload.get("verification_notes") or []][:5],
+        "ai_generated": True,
+    }
+    if not any("verify with bis" in note.lower() for note in normalized["verification_notes"]):
+        normalized["verification_notes"].append(VERIFY_WITH_BIS_NOTE)
+    if not _guidance_mentions_only_allowed_codes(normalized, allowed_codes):
+        return None
+    return normalized
+
+
+def _groq_business_guidance(
+    query: str,
+    retrieved_codes: list[str],
+    recommendations: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key or not retrieved_codes:
+        return None
+
+    standards = [
+        {
+            "code": item.get("code"),
+            "title": item.get("title"),
+            "rationale": item.get("rationale"),
+        }
+        for item in recommendations
+    ]
+    prompt = {
+        "query": query,
+        "retrieved_standards": standards,
+        "rules": [
+            "Return JSON only with the requested keys.",
+            "Only mention IS codes present in retrieved_standards.",
+            "Do not invent fees, timelines, forms, legal claims, certification guarantees, or standards.",
+            "Include Verify with BIS in verification_notes.",
+        ],
+    }
+    request_body = {
+        "model": os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant"),
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You write cautious BIS standards discovery guidance for MSE users. "
+                    "Use only the supplied retrieved standards and return compact JSON."
+                ),
+            },
+            {"role": "user", "content": json.dumps(prompt, ensure_ascii=True)},
+        ],
+        "temperature": 0.1,
+        "max_tokens": 700,
+        "response_format": {"type": "json_object"},
+    }
+    request = urllib.request.Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=json.dumps(request_body).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=2.5) as response:
+            response_payload = json.loads(response.read().decode("utf-8"))
+    except (OSError, urllib.error.URLError, json.JSONDecodeError):
+        return None
+
+    content = (
+        response_payload.get("choices", [{}])[0]
+        .get("message", {})
+        .get("content", "")
+    )
+    try:
+        guidance_payload = json.loads(content)
+    except json.JSONDecodeError:
+        return None
+    allowed_codes = {normalize_standard_code(code) for code in retrieved_codes}
+    return _normalize_guidance_payload(guidance_payload, allowed_codes)
+
+
+def _business_guidance(
+    query: str,
+    retrieved_codes: list[str],
+    recommendations: list[dict[str, Any]],
+    out_of_scope: bool,
+) -> dict[str, Any]:
+    fallback = _fallback_business_guidance(query, retrieved_codes, recommendations, out_of_scope)
+    generated = _groq_business_guidance(query, retrieved_codes, recommendations)
+    if generated is None:
+        return fallback
+    if not generated.get("matched_terms"):
+        generated["matched_terms"] = fallback["matched_terms"]
+    return generated
 
 
 def _external_standards(query: str, language: str = "en") -> list[dict[str, str]]:
@@ -2572,11 +3042,19 @@ def recommend(payload: RecommendationRequest) -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Recommendation failed: {exc}") from exc
 
+    recommendations = _recommendation_items(result["retrieved_standards"], payload.language)
+    external_standards = _external_standards(query, payload.language)
     return {
         **result,
         "compliance_warnings": processed.compliance_warnings,
-        "recommendations": _recommendation_items(result["retrieved_standards"], payload.language),
-        "external_standards": _external_standards(query, payload.language),
+        "recommendations": recommendations,
+        "business_guidance": _business_guidance(
+            query=query,
+            retrieved_codes=result["retrieved_standards"],
+            recommendations=recommendations,
+            out_of_scope=bool(result.get("out_of_scope")),
+        ),
+        "external_standards": external_standards,
     }
 
 

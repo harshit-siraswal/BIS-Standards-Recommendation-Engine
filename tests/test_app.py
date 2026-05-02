@@ -2,7 +2,12 @@ import re
 
 from fastapi.testclient import TestClient
 
-from app import INDEX_HTML, _bis_portal_search_url_for_code, app
+from app import (
+    INDEX_HTML,
+    _bis_portal_search_url_for_code,
+    _normalize_guidance_payload,
+    app,
+)
 
 
 client = TestClient(app)
@@ -95,6 +100,67 @@ def test_recommendations_use_bis_search_links_without_old_years():
         "https://standardsbis.bsbedge.com/BIS_SearchStandard.aspx?Standard_Number=IS+269&id=0"
     )
     assert "269_1989" not in payload["recommendations"][0]["source_url"]
+
+
+def test_recommendation_response_includes_deterministic_business_guidance(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+
+    response = client.post(
+        "/recommend",
+        json={"query": "white Portland cement for architectural decorative use", "top_k": 3},
+    )
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert payload["retrieved_standards"]
+    assert payload["recommendations"]
+    guidance = payload["business_guidance"]
+    assert guidance["ai_generated"] is False
+    assert guidance["matched_category"]
+    assert guidance["matched_terms"]
+    assert guidance["why_these_standards"]
+    assert any("Verify with BIS" in note for note in guidance["verification_notes"])
+
+    allowed_codes = set(payload["retrieved_standards"])
+    guidance_text = " ".join(
+        " ".join(value) if isinstance(value, list) else str(value)
+        for value in guidance.values()
+    )
+    mentioned_codes = re.findall(
+        r"\bIS\s*\d{2,5}(?:\s*\(\s*Part\s*\d+(?:\s*/\s*Sec\s*\d+)?\s*\))?\s*[:\-]\s*\d{4}",
+        guidance_text,
+        re.I,
+    )
+    assert set(mentioned_codes).issubset(allowed_codes)
+
+
+def test_business_guidance_rejects_generated_unreturned_is_codes():
+    unsafe = {
+        "matched_category": "Cement",
+        "matched_terms": ["cement"],
+        "why_these_standards": ["Use IS 9999:2099 for this product."],
+        "documents_to_prepare": ["Factory documents"],
+        "testing_lab_readiness": ["Prepare samples"],
+        "bis_workflow": ["Apply after review"],
+        "verification_notes": ["Verify with BIS."],
+    }
+
+    assert _normalize_guidance_payload(unsafe, {"is269:1989"}) is None
+
+
+def test_out_of_scope_business_guidance_does_not_invent_catalog_codes(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+
+    response = client.post("/recommend", json={"query": "we make edible oil", "top_k": 5})
+    payload = response.json()
+    guidance = payload["business_guidance"]
+
+    assert response.status_code == 200
+    assert payload["out_of_scope"] is True
+    assert payload["retrieved_standards"] == []
+    assert guidance["ai_generated"] is False
+    assert guidance["why_these_standards"] == []
+    assert any("Verify with BIS" in note for note in guidance["verification_notes"])
 
 
 def test_edible_oil_queries_return_relevant_oil_standards_with_links():
