@@ -179,6 +179,94 @@ MULTILINGUAL_PRODUCT_EXPANSIONS: tuple[tuple[tuple[str, ...], str], ...] = (
         ),
         "white portland cement architectural decorative chemical physical requirements",
     ),
+    (
+        (
+            "tmt bars for rcc",
+            "tmt bar",
+            "tmt bars",
+            "steel reinforcement bars",
+            "steel reinforcement bars for concrete",
+            "reinforcement steel for concrete",
+            "rcc steel bar",
+            "rcc ke liye steel bar",
+            "saria",
+            "lohe ka rod",
+        ),
+        "plain high strength deformed steel bars wires concrete reinforcement tmt rcc steel reinforcement",
+    ),
+    (
+        (
+            "mild steel bars for concrete reinforcement",
+            "medium tensile steel bars",
+            "hard drawn steel wire",
+            "ms bars reinforcement",
+        ),
+        "mild steel medium tensile steel bars hard drawn steel wire concrete reinforcement part 1",
+    ),
+    (
+        (
+            "structural steel beams and channels",
+            "steel beams channels",
+            "steel beam column channel angle",
+            "hot rolled steel sections",
+            "steel angles channels beams",
+        ),
+        "dimensions hot rolled steel beam column channel angle sections",
+    ),
+    (
+        (
+            "structural steel",
+            "general structural steel",
+            "steel for structural purposes",
+            "construction structural steel",
+        ),
+        "steel for general structural purposes structural steel",
+    ),
+    (
+        (
+            "steel tubes structural purposes",
+            "structural steel tubes",
+            "construction steel tubes",
+        ),
+        "steel tubes for structural purposes",
+    ),
+    (
+        (
+            "hollow steel sections",
+            "hollow steel section",
+            "steel hollow sections",
+            "structural hollow section",
+            "square hollow steel section",
+            "rectangular hollow steel section",
+        ),
+        "hollow steel sections structural use",
+    ),
+    (
+        (
+            "galvanized roofing steel sheet",
+            "galvanized steel sheet",
+            "galvanised steel sheet",
+            "corrugated galvanized steel sheet",
+            "plain galvanized steel sheet",
+        ),
+        "galvanized steel sheets plain corrugated roofing steel sheet",
+    ),
+    (
+        (
+            "steel plates sheets strips flats",
+            "steel plates strips flats structural engineering",
+            "structural steel plates",
+        ),
+        "steel plates sheets strips flats structural general engineering purposes",
+    ),
+    (
+        (
+            "round square steel bars",
+            "round and square steel bars",
+            "structural steel round square bars",
+        ),
+        "steel bars round square structural general engineering purposes dimensions",
+    ),
 )
 
 
