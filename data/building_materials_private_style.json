@@ -1,0 +1,302 @@
+[
+  {
+    "id": "PRIVATE-001",
+    "query": "TMT bars for RCC construction",
+    "expected_standards": ["IS 1786: 1985"]
+  },
+  {
+    "id": "PRIVATE-002",
+    "query": "steel reinforcement bars for concrete slab",
+    "expected_standards": ["IS 1786: 1985"]
+  },
+  {
+    "id": "PRIVATE-003",
+    "query": "saria for RCC house construction",
+    "expected_standards": ["IS 1786: 1985"]
+  },
+  {
+    "id": "PRIVATE-004",
+    "query": "lohe ka rod concrete reinforcement",
+    "expected_standards": ["IS 1786: 1985"]
+  },
+  {
+    "id": "PRIVATE-005",
+    "query": "RCC ke liye steel bar",
+    "expected_standards": ["IS 1786: 1985"]
+  },
+  {
+    "id": "PRIVATE-006",
+    "query": "mild steel bars for concrete reinforcement",
+    "expected_standards": ["IS 432 (Part 1): 1982"]
+  },
+  {
+    "id": "PRIVATE-007",
+    "query": "medium tensile steel bars for reinforcement",
+    "expected_standards": ["IS 432 (Part 1): 1982"]
+  },
+  {
+    "id": "PRIVATE-008",
+    "query": "hard drawn steel wire for concrete reinforcement",
+    "expected_standards": ["IS 432 (Part 2): 1982"]
+  },
+  {
+    "id": "PRIVATE-009",
+    "query": "general structural steel for fabrication",
+    "expected_standards": ["IS 2062: 1999"]
+  },
+  {
+    "id": "PRIVATE-010",
+    "query": "structural steel beams and channels",
+    "expected_standards": ["IS 808: 1989"]
+  },
+  {
+    "id": "PRIVATE-011",
+    "query": "hot rolled steel beam column channel angle sections",
+    "expected_standards": ["IS 808: 1989"]
+  },
+  {
+    "id": "PRIVATE-012",
+    "query": "steel tubes for structural purposes",
+    "expected_standards": ["IS 1161: 1998"]
+  },
+  {
+    "id": "PRIVATE-013",
+    "query": "hollow steel sections for structural use",
+    "expected_standards": ["IS 4923: 1997"]
+  },
+  {
+    "id": "PRIVATE-014",
+    "query": "square hollow steel section construction",
+    "expected_standards": ["IS 4923: 1997"]
+  },
+  {
+    "id": "PRIVATE-015",
+    "query": "galvanized roofing steel sheet",
+    "expected_standards": ["IS 277: 2003"]
+  },
+  {
+    "id": "PRIVATE-016",
+    "query": "corrugated galvanized steel sheets",
+    "expected_standards": ["IS 277: 2003"]
+  },
+  {
+    "id": "PRIVATE-017",
+    "query": "steel plates sheets strips flats structural engineering",
+    "expected_standards": ["IS 1730: 1989"]
+  },
+  {
+    "id": "PRIVATE-018",
+    "query": "round and square steel bars dimensions",
+    "expected_standards": ["IS 1732: 1989"]
+  },
+  {
+    "id": "PRIVATE-019",
+    "query": "33 grade OPC cement for building work",
+    "expected_standards": ["IS 269: 1989"]
+  },
+  {
+    "id": "PRIVATE-020",
+    "query": "ordinary portland cement chemical physical requirements",
+    "expected_standards": ["IS 269: 1989"]
+  },
+  {
+    "id": "PRIVATE-021",
+    "query": "PPC fly ash based cement",
+    "expected_standards": ["IS 1489 (Part 1): 1991"]
+  },
+  {
+    "id": "PRIVATE-022",
+    "query": "calcined clay based portland pozzolana cement",
+    "expected_standards": ["IS 1489 (Part 2): 1991"]
+  },
+  {
+    "id": "PRIVATE-023",
+    "query": "portland slag cement manufacturing requirements",
+    "expected_standards": ["IS 455: 1989"]
+  },
+  {
+    "id": "PRIVATE-024",
+    "query": "white portland cement for decorative architectural use",
+    "expected_standards": ["IS 8042: 1989"]
+  },
+  {
+    "id": "PRIVATE-025",
+    "query": "supersulphated cement for marine aggressive water",
+    "expected_standards": ["IS 6909: 1990"]
+  },
+  {
+    "id": "PRIVATE-026",
+    "query": "masonry cement for brick mortar",
+    "expected_standards": ["IS 3466: 1988"]
+  },
+  {
+    "id": "PRIVATE-027",
+    "query": "coarse fine aggregate for structural concrete",
+    "expected_standards": ["IS 383: 1970"]
+  },
+  {
+    "id": "PRIVATE-028",
+    "query": "river sand and gravel for concrete",
+    "expected_standards": ["IS 383: 1970"]
+  },
+  {
+    "id": "PRIVATE-029",
+    "query": "precast concrete pipes for water mains",
+    "expected_standards": ["IS 458: 2003"]
+  },
+  {
+    "id": "PRIVATE-030",
+    "query": "RCC concrete pipe for drainage",
+    "expected_standards": ["IS 458: 2003"]
+  },
+  {
+    "id": "PRIVATE-031",
+    "query": "hollow solid lightweight concrete masonry blocks",
+    "expected_standards": ["IS 2185 (Part 2): 1983"]
+  },
+  {
+    "id": "PRIVATE-032",
+    "query": "lightweight blocks for masonry wall",
+    "expected_standards": ["IS 2185 (Part 2): 1983"]
+  },
+  {
+    "id": "PRIVATE-033",
+    "query": "corrugated asbestos cement roofing sheet",
+    "expected_standards": ["IS 459: 1992"]
+  },
+  {
+    "id": "PRIVATE-034",
+    "query": "AC sheet for roof cladding",
+    "expected_standards": ["IS 459: 1992"]
+  },
+  {
+    "id": "PRIVATE-035",
+    "query": "common burnt clay building bricks",
+    "expected_standards": ["IS 1077: 1992"]
+  },
+  {
+    "id": "PRIVATE-036",
+    "query": "building lime for masonry plaster",
+    "expected_standards": ["IS 712: 1984"]
+  },
+  {
+    "id": "PRIVATE-037",
+    "query": "paving bitumen road construction",
+    "expected_standards": ["IS 73: 1992"]
+  },
+  {
+    "id": "PRIVATE-038",
+    "query": "industrial bitumen waterproofing material",
+    "expected_standards": ["IS 702: 1988"]
+  },
+  {
+    "id": "PRIVATE-039",
+    "query": "bitumen mastic flooring",
+    "expected_standards": ["IS 1195: 2002"]
+  },
+  {
+    "id": "PRIVATE-040",
+    "query": "timber panelled glazed door shutters",
+    "expected_standards": ["IS 1003 (Part 1): 2003"]
+  },
+  {
+    "id": "PRIVATE-041",
+    "query": "timber panelled glazed window ventilator shutters",
+    "expected_standards": ["IS 1003 (Part 2): 1994"]
+  },
+  {
+    "id": "PRIVATE-042",
+    "query": "steel doors windows ventilators",
+    "expected_standards": ["IS 1038: 1983"]
+  },
+  {
+    "id": "PRIVATE-043",
+    "query": "steel windows for industrial buildings",
+    "expected_standards": ["IS 1361: 1978"]
+  },
+  {
+    "id": "PRIVATE-044",
+    "query": "window frame putty",
+    "expected_standards": ["IS 419: 1967"]
+  },
+  {
+    "id": "PRIVATE-045",
+    "query": "linoleum sheet and tiles flooring",
+    "expected_standards": ["IS 653: 1992"]
+  },
+  {
+    "id": "PRIVATE-046",
+    "query": "rubber flooring material",
+    "expected_standards": ["IS 809: 1992"]
+  },
+  {
+    "id": "PRIVATE-047",
+    "query": "clay roofing tiles mangalore pattern",
+    "expected_standards": ["IS 654: 1992"]
+  },
+  {
+    "id": "PRIVATE-048",
+    "query": "limestone slab and tiles",
+    "expected_standards": ["IS 1128: 1974"]
+  },
+  {
+    "id": "PRIVATE-049",
+    "query": "plywood for general purposes",
+    "expected_standards": ["IS 303: 1989"]
+  },
+  {
+    "id": "PRIVATE-050",
+    "query": "coniferous sawn timber baulks scantlings",
+    "expected_standards": ["IS 190: 1991"]
+  },
+  {
+    "id": "PRIVATE-051",
+    "query": "cast iron pressure pipes water gas sewage",
+    "expected_standards": ["IS 1536: 2001"]
+  },
+  {
+    "id": "PRIVATE-052",
+    "query": "ductile iron pressure pipes water mains",
+    "expected_standards": ["IS 8329: 2000"]
+  },
+  {
+    "id": "PRIVATE-053",
+    "query": "UPVC soil waste rain water pipes",
+    "expected_standards": ["IS 13592: 1992"]
+  },
+  {
+    "id": "PRIVATE-054",
+    "query": "HDPE fittings for potable water supply",
+    "expected_standards": ["IS 8008 (Part 1): 2003"]
+  },
+  {
+    "id": "PRIVATE-055",
+    "query": "hexagon head bolts screws nuts product grade C",
+    "expected_standards": ["IS 1363 (Part 1): 2002"]
+  },
+  {
+    "id": "PRIVATE-056",
+    "query": "mild steel sliding door bolts",
+    "expected_standards": ["IS 281: 1991"]
+  },
+  {
+    "id": "PRIVATE-057",
+    "query": "tower bolts ferrous metals",
+    "expected_standards": ["IS 204 (Part 1): 1991"]
+  },
+  {
+    "id": "PRIVATE-058",
+    "query": "hook bolts for corrugated sheet roofing",
+    "expected_standards": ["IS 730: 1978"]
+  },
+  {
+    "id": "PRIVATE-059",
+    "query": "single coil spring lock washers fasteners",
+    "expected_standards": ["IS 3063: 1994"]
+  },
+  {
+    "id": "PRIVATE-060",
+    "query": "step bolt for steel structures",
+    "expected_standards": ["IS 10238: 2001"]
+  }
+]

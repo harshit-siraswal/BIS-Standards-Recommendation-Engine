@@ -644,6 +644,15 @@ INDEX_HTML = """
       font-weight: 800;
     }
 
+    .result-confidence {
+      border: 1px solid rgba(0, 94, 168, 0.22);
+      border-radius: 999px;
+      padding: 3px 8px;
+      color: var(--gov-navy);
+      background: var(--gov-blue-2);
+      white-space: nowrap;
+    }
+
     .result-meta a {
       color: var(--gov-blue);
       overflow-wrap: anywhere;
@@ -2903,6 +2912,7 @@ INDEX_HTML = """
               <h3><span class="code">${escapeHtml(item.code)}</span>${escapeHtml(item.title || "BIS standard")}</h3>
               <p class="rationale">${escapeHtml(item.rationale || "Matched against the BIS catalogue.")}</p>
               <div class="result-meta">
+                <span class="result-confidence">${escapeHtml(`Rank ${index + 1} confidence ${Math.round(Number(item.confidence || 0) * 100)}%`)}</span>
                 <a href="${escapeHtml(item.source_url || bisPortalSearchUrl(item.code))}" target="_blank" rel="noopener">${escapeHtml(item.source_url || bisPortalSearchUrl(item.code))}</a>
               </div>
             </div>
@@ -3128,11 +3138,13 @@ GUIDANCE_STOP_WORDS = {
 }
 GENERIC_DOCUMENTS = [
     "Product description with material, grade, dimensions, and intended use.",
+    "List of product variants, sizes, grades, and labels to map against each returned IS code.",
     "Manufacturing process note and quality-control checkpoints.",
     "Raw material specifications and supplier records.",
     "Batch or lot identification records for samples submitted for testing.",
 ]
 GENERIC_TESTING_READINESS = [
+    "Identify the tests and acceptance criteria in the official text of the returned standard.",
     "Shortlist BIS-recognized or otherwise competent labs for the returned standards.",
     "Prepare representative samples and retain traceability to production lots.",
     "Compare test parameters against the official standard text before submission.",
@@ -3184,7 +3196,8 @@ def _matched_category(query: str, recommendations: list[dict[str, Any]]) -> str:
         (("pipe", "pipes", "water", "mains"), "Concrete pipes and drainage/water infrastructure"),
         (("block", "blocks", "masonry"), "Masonry units and concrete blocks"),
         (("sheet", "roof", "roofing", "cladding"), "Roofing and cladding material"),
-        (("steel", "tmt", "reinforcement", "reinforced", "bar", "bars"), "Steel and reinforcement product"),
+        (("tmt", "saria", "reinforcement", "reinforced", "bar", "bars"), "Steel reinforcement for concrete"),
+        (("steel", "beam", "beams", "channel", "angle", "hollow", "tube", "plate"), "Structural steel product"),
     )
     for terms, category in category_rules:
         if any(term in query_tokens for term in terms):
@@ -3215,20 +3228,27 @@ def _fallback_business_guidance(
         }
 
     why = []
+    category = _matched_category(query, recommendations)
+    terms = _matched_terms(query, recommendations)
+    terms_text = ", ".join(terms) if terms else "the submitted product words"
     for index, item in enumerate(recommendations, start=1):
         code = str(item.get("code") or retrieved_codes[index - 1])
         title = str(item.get("title") or "BIS catalogue standard")
+        confidence = int(float(item.get("confidence") or 0) * 100)
         if index == 1:
-            why.append(f"Top candidate: {code} aligns with the catalogue title/scope for {title}.")
+            why.append(
+                f"Top candidate: {code} aligns with matched terms ({terms_text}) in category "
+                f"{category}; rank {index}, confidence {confidence}%, title/scope: {title}."
+            )
         else:
             why.append(
-                f"Additional candidate rank {index}: {code} is related in the catalogue, but verify "
-                f"whether {title} applies to this exact product grade and use."
+                f"Additional candidate rank {index}: {code} is related to category {category}; "
+                f"confidence {confidence}%, verify whether {title} applies to this exact grade and use."
             )
 
     return {
-        "matched_category": _matched_category(query, recommendations),
-        "matched_terms": _matched_terms(query, recommendations),
+        "matched_category": category,
+        "matched_terms": terms,
         "why_these_standards": why,
         "documents_to_prepare": GENERIC_DOCUMENTS,
         "testing_lab_readiness": GENERIC_TESTING_READINESS,

@@ -29,6 +29,28 @@ def test_noisy_query_robustness():
         assert len(retrieved) == 5, f"Query {query!r} returned {len(retrieved)} results: {retrieved}"
 
 
+def test_steel_hidden_set_style_queries():
+    pairs = [
+        ("TMT bars for RCC construction", "is1786:1985"),
+        ("steel reinforcement bars for concrete", "is1786:1985"),
+        ("saria for RCC", "is1786:1985"),
+        ("lohe ka rod concrete reinforcement", "is1786:1985"),
+        ("RCC ke liye steel bar", "is1786:1985"),
+        ("mild steel bars for concrete reinforcement", "is432(part1):1982"),
+        ("structural steel beams and channels", "is808:1989"),
+        ("hollow steel sections for construction", "is4923:1997"),
+        ("galvanized roofing steel sheet", "is277:2003"),
+        ("steel tubes structural purposes", "is1161:1998"),
+        ("steel plates strips flats structural engineering", "is1730:1989"),
+        ("round square steel bars structural engineering", "is1732:1989"),
+    ]
+    pipeline = BISPipeline()
+    for query, expected in pairs:
+        out = pipeline.run_query(query)
+        retrieved = [normalize_standard_code(code) for code in out["retrieved_standards"]]
+        assert expected in retrieved[:3], f"Failed for: {query} -> {retrieved}"
+
+
 def test_long_and_unicode_queries_do_not_crash():
     pipeline = BISPipeline()
     out = pipeline.run_query(("standards " * 80) + "33 grade OPC")

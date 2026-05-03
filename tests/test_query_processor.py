@@ -45,6 +45,26 @@ def test_marine_works_expands_to_supersulphated():
     assert "ssc" in pq.expanded
 
 
+def test_steel_reinforcement_aliases_expand_to_catalog_terms():
+    qp = QueryProcessor()
+    pq = qp.process("saria for RCC construction")
+
+    assert pq.out_of_scope is False
+    assert "steel reinforcement bars" in pq.expanded
+    assert "high strength deformed steel bars" in pq.expanded
+    assert "concrete reinforcement" in pq.expanded
+
+
+def test_structural_steel_aliases_expand_to_sections_and_tubes():
+    qp = QueryProcessor()
+    pq = qp.process("structural steel beams and hollow steel sections")
+
+    assert pq.out_of_scope is False
+    assert "hot rolled steel sections" in pq.expanded
+    assert "hollow steel sections structural use" in pq.expanded
+    assert "steel for general structural purposes" in pq.expanded
+
+
 def test_multilingual_product_phrase_expands_to_catalog_terms():
     qp = QueryProcessor()
     pq = qp.process("\u0938\u092b\u0947\u0926 \u092a\u094b\u0930\u094d\u091f\u0932\u0948\u0902\u0921 \u0938\u0940\u092e\u0947\u0902\u091f")

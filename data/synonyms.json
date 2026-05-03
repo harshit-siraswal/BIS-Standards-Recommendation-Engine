@@ -306,6 +306,116 @@
       "water gas sewage pipe"
     ]
   },
+  "steel_products": {
+    "tmt": [
+      "tmt bar",
+      "tmt bars",
+      "high strength deformed steel bars",
+      "deformed steel bars",
+      "steel reinforcement bars",
+      "reinforcement steel",
+      "rcc steel bars",
+      "concrete reinforcement steel"
+    ],
+    "tmt bar": [
+      "tmt",
+      "tmt bars",
+      "high strength deformed steel bars",
+      "deformed steel bars",
+      "steel reinforcement bars",
+      "reinforcement bars for concrete",
+      "rcc steel bar"
+    ],
+    "saria": [
+      "steel reinforcement bars",
+      "tmt bars",
+      "rcc steel bars",
+      "deformed steel bars",
+      "concrete reinforcement steel"
+    ],
+    "lohe ka rod": [
+      "steel reinforcement bars",
+      "tmt bars",
+      "mild steel bars",
+      "concrete reinforcement steel"
+    ],
+    "steel reinforcement": [
+      "reinforcement steel",
+      "steel reinforcement bars",
+      "steel bars for concrete reinforcement",
+      "rcc steel bars",
+      "tmt bars"
+    ],
+    "reinforcement bars": [
+      "steel reinforcement bars",
+      "mild steel bars",
+      "high strength deformed steel bars",
+      "concrete reinforcement"
+    ],
+    "mild steel bars": [
+      "medium tensile steel bars",
+      "steel bars for concrete reinforcement",
+      "hard drawn steel wire",
+      "reinforcement bars"
+    ],
+    "structural steel": [
+      "steel for general structural purposes",
+      "structural steel beams",
+      "structural steel columns",
+      "hot rolled steel sections",
+      "steel channels",
+      "steel angles"
+    ],
+    "steel beam": [
+      "steel beams",
+      "hot rolled steel beam",
+      "structural steel sections",
+      "steel column",
+      "steel channel",
+      "steel angle"
+    ],
+    "steel channel": [
+      "steel channels",
+      "hot rolled steel channel",
+      "structural steel sections",
+      "steel beam",
+      "steel angle"
+    ],
+    "hollow steel section": [
+      "hollow steel sections",
+      "structural hollow section",
+      "steel hollow section",
+      "rectangular hollow section",
+      "square hollow section"
+    ],
+    "steel tube": [
+      "steel tubes",
+      "structural steel tubes",
+      "steel tubes for structural purposes",
+      "construction steel tubes"
+    ],
+    "galvanized steel sheet": [
+      "galvanized steel sheets",
+      "galvanised steel sheet",
+      "galvanised steel sheets",
+      "plain galvanized steel sheet",
+      "corrugated galvanized steel sheet",
+      "galvanized roofing steel sheet"
+    ],
+    "steel plate": [
+      "steel plates",
+      "steel sheets",
+      "steel strips",
+      "steel flats",
+      "structural steel plates"
+    ],
+    "round steel bar": [
+      "round steel bars",
+      "square steel bars",
+      "steel bars round and square",
+      "structural steel bars"
+    ]
+  },
   "applications": {
     "structural": [
       "structural concrete",
