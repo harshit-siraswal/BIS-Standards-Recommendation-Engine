@@ -41,7 +41,7 @@ Judge-safe command:
 python inference.py --input hidden_private_dataset.json --output team_results.json
 ```
 
-`inference.py` is API-free and returns only the required fields:
+`inference.py` is API-free and returns only the required fields:-
 `id`, `retrieved_standards`, and `latency_seconds` with optional passthrough
 fields for local evaluation. The FastAPI assistant is separate demo polish; it
 does not change the judge path.
