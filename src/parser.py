@@ -153,9 +153,9 @@ def _extract_text_with_fitz(pdf_path: Path) -> str:
         except Exception as exc:  # pragma: no cover - depends on malformed PDFs
             LOGGER.warning("PyMuPDF failed on page %s: %s", index + 1, exc)
             text = ""
-        page_texts.append(f"\n[PAGE {index + 1}]\n{text}")
+        page_texts.append(f"\n[PAGE {index + 1}]\n{normalize_text(text)}")
     document.close()
-    return normalize_text("".join(page_texts))
+    return "".join(page_texts)
 
 
 def _extract_text_with_pdfplumber(pdf_path: Path) -> str:

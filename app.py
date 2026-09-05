@@ -21,6 +21,22 @@ from src.pipeline import BISPipeline, MAX_QUERY_CHARS
 from src.query_processor import is_edible_oil_query, is_pencil_query
 from src.retriever import normalize_standard_code
 
+def _load_env_file() -> None:
+    env_path = Path(__file__).resolve().parent / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+_load_env_file()
+
 
 ARTIFACT_PATHS = (
     Path("data/standards_indexed.json"),
@@ -162,7 +178,7 @@ FAVICON_SVG = """
 """.strip()
 
 
-INDEX_HTML = """
+INDEX_HTML = r"""
 <!doctype html>
 <html lang="en">
 <head>
@@ -2872,6 +2888,20 @@ INDEX_HTML = """
     let chatHistory = [];
     let roadmapVisible = false;
 
+    function audienceLabel(audience) {
+      const aud = String(audience || "industry_or_consumer").toLowerCase();
+      if (currentLang === "hi" || (fallbackUiLang() === "hi" && currentLang !== "en")) {
+        if (aud === "industry") return "उद्योग एवं विनिर्माता (Industry / Manufacturers)";
+        if (aud === "consumer") return "उपभोक्ता (Consumers)";
+        if (aud === "industry_and_consumer") return "उद्योग एवं उपभोक्ता (Industry & Consumers)";
+        return "उद्योग या उपभोक्ता (Industry or Consumer)";
+      }
+      if (aud === "industry") return "Industry and Manufacturers";
+      if (aud === "consumer") return "Consumers and Buyers";
+      if (aud === "industry_and_consumer") return "Industry and Consumers";
+      return "Industry or Consumer";
+    }
+
     function escapeHtml(value) {
       return String(value)
         .replaceAll("&", "&amp;")
@@ -3032,7 +3062,7 @@ INDEX_HTML = """
       const steps = (roadmap.steps || []).filter((step) => step && step.title);
       roadmapPanel.innerHTML = `
         <h3>${escapeHtml(a("roadmapTitle"))}</h3>
-        <p>${escapeHtml(roadmap.audience || "industry_or_consumer")}</p>
+        <p>${escapeHtml(audienceLabel(roadmap.audience))}</p>
         <div class="roadmap-grid">
           <div class="roadmap-card">
             <h3>${escapeHtml(a("roadmapSchemesTitle"))}</h3>
@@ -3082,7 +3112,7 @@ INDEX_HTML = """
       return `
         <div class="guidance-card">
           <h3>${escapeHtml(a("audienceTitle"))}</h3>
-          <p>${escapeHtml(service.audience || "industry_or_consumer")}</p>
+          <p>${escapeHtml(audienceLabel(service.audience))}</p>
         </div>
         <div class="guidance-card">
           <h3>${escapeHtml(a("servicesTitle"))}</h3>
@@ -3156,41 +3186,42 @@ INDEX_HTML = """
     function buildComplianceReportMarkdown(data) {
       const report = (data && data.compliance_report) || null;
       if (!report) return "";
+      const isHi = (currentLang === "hi" || (fallbackUiLang() === "hi" && currentLang !== "en"));
       const lines = [];
-      lines.push("# BIS Compliance Intelligence Report");
+      lines.push(isHi ? "# BIS अनुपालन खुफिया रिपोर्ट (BIS Compliance Intelligence Report)" : "# BIS Compliance Intelligence Report");
       lines.push("");
-      lines.push(`Generated at: ${new Date().toISOString()}`);
+      lines.push(isHi ? `उत्पन्न तिथि (Generated at): ${new Date().toLocaleString("hi-IN")}` : `Generated at: ${new Date().toISOString()}`);
       lines.push("");
-      lines.push("## Product");
-      lines.push(report.product_description || "Not provided");
+      lines.push(isHi ? "## उत्पाद विवरण (Product Description)" : "## Product");
+      lines.push(report.product_description || (isHi ? "विवरण उपलब्ध नहीं" : "Not provided"));
       lines.push("");
-      lines.push("## Classification");
-      lines.push(report.classification || "Not classified");
+      lines.push(isHi ? "## वर्गीकरण (Classification)" : "## Classification");
+      lines.push(report.classification || (isHi ? "अवर्गीकृत" : "Not classified"));
       lines.push("");
-      lines.push("## Applicable Indian Standards");
+      lines.push(isHi ? "## लागू भारतीय मानक (Applicable Indian Standards)" : "## Applicable Indian Standards");
       (report.applicable_indian_standards || []).forEach((item) => lines.push(`- ${item}`));
       lines.push("");
-      lines.push("## Applicability");
-      lines.push(`- Mandatory or voluntary: ${report.mandatory_or_voluntary || "Verify with BIS"}`);
-      lines.push(`- Certification required: ${report.certification_required || "Verify with BIS"}`);
-      lines.push(`- Applicable BIS scheme: ${report.applicable_bis_scheme || "Verify with BIS"}`);
+      lines.push(isHi ? "## प्रयोज्यता और प्रमाणन (Applicability & Certification)" : "## Applicability");
+      lines.push(isHi ? `- अनिवार्य या स्वैच्छिक (Mandatory/Voluntary): ${report.mandatory_or_voluntary || "BIS से सत्यापित करें"}` : `- Mandatory or voluntary: ${report.mandatory_or_voluntary || "Verify with BIS"}`);
+      lines.push(isHi ? `- प्रमाणन आवश्यकता (Certification required): ${report.certification_required || "BIS से सत्यापित करें"}` : `- Certification required: ${report.certification_required || "Verify with BIS"}`);
+      lines.push(isHi ? `- लागू BIS स्कीम (Applicable scheme): ${report.applicable_bis_scheme || "BIS से सत्यापित करें"}` : `- Applicable BIS scheme: ${report.applicable_bis_scheme || "Verify with BIS"}`);
       lines.push("");
-      lines.push("## Relevant Clauses");
+      lines.push(isHi ? "## प्रासंगिक मानक क्लॉज (Relevant Clauses)" : "## Relevant Clauses");
       (report.relevant_clauses || []).forEach((item) => lines.push(`- ${item}`));
       lines.push("");
-      lines.push("## Required Tests");
+      lines.push(isHi ? "## आवश्यक परीक्षण (Required Tests)" : "## Required Tests");
       (report.required_tests || []).forEach((item) => lines.push(`- ${item}`));
       lines.push("");
-      lines.push("## Suggested Labs");
+      lines.push(isHi ? "## अनुशंसित प्रयोगशालाएं (Suggested Labs)" : "## Suggested Labs");
       (report.suggested_labs || []).forEach((item) => lines.push(`- ${item}`));
       lines.push("");
-      lines.push("## Estimated Compliance Workflow");
+      lines.push(isHi ? "## अनुमानित अनुपालन कार्यप्रवाह (Compliance Workflow)" : "## Estimated Compliance Workflow");
       (report.estimated_compliance_workflow || []).forEach((item) => lines.push(`- ${item}`));
       lines.push("");
-      lines.push("## Sources");
+      lines.push(isHi ? "## आधिकारिक स्रोत लिंक (Official Sources)" : "## Sources");
       (report.source_links || []).forEach((item) => lines.push(`- ${item}`));
       lines.push("");
-      lines.push("## Verification Note");
+      lines.push(isHi ? "## महत्वपूर्ण सत्यापन नोट (Verification Note)" : "## Verification Note");
       lines.push(report.verification_note || a("fallback"));
       return lines.join("\n");
     }
@@ -3611,52 +3642,81 @@ CLAUSE_PATTERN = re.compile(
 )
 
 
-def _classify_product_family(query: str) -> str:
+def _classify_product_family(query: str, language: str = "en") -> str:
     lower = str(query or "").lower()
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
     if any(term in lower for term in HALLMARKING_TERMS):
-        return "Precious metal article (hallmarking context)"
+        return "कीमती धातु वस्तु (हॉलमार्किंग संदर्भ)" if is_hi else "Precious metal article (hallmarking context)"
     if any(term in lower for term in ELECTRICAL_TERMS):
-        return "Electrical/electronic product"
+        return "विद्युत / इलेक्ट्रॉनिक उत्पाद" if is_hi else "Electrical/electronic product"
     if any(term in lower for term in FOOD_CONTACT_TERMS):
-        return "Food or food-contact product"
+        return "खाद्य या खाद्य-संपर्क उत्पाद" if is_hi else "Food or food-contact product"
     if any(term in lower for term in ("cement", "aggregate", "concrete", "steel", "pipe", "block")):
-        return "Building material or construction product"
-    return "General manufactured product"
+        return "भवन निर्माण सामग्री या संरचनात्मक उत्पाद" if is_hi else "Building material or construction product"
+    return "सामान्य विनिर्मित उत्पाद" if is_hi else "General manufactured product"
 
 
-def _mandatory_status(query: str, has_codes: bool) -> str:
+def _mandatory_status(query: str, has_codes: bool, language: str = "en") -> str:
     lower = str(query or "").lower()
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
     if any(term in lower for term in HALLMARKING_TERMS):
-        return "Likely mandatory for covered precious metal categories; verify latest BIS hallmarking notifications."
+        return (
+            "अधिसूचित कीमती धातु श्रेणियों के लिए अनिवार्य; नवीनतम BIS हॉलमार्किंग अधिसूचनाएं देखें।"
+            if is_hi else
+            "Likely mandatory for covered precious metal categories; verify latest BIS hallmarking notifications."
+        )
     if has_codes:
-        return "May be mandatory if covered by a QCO or procurement requirement; otherwise potentially voluntary. Verify current BIS/QCO notifications."
-    return "Cannot determine from current catalogue match; verify with BIS and the latest QCO notifications."
+        return (
+            "यदि QCO (गुणवत्ता नियंत्रण आदेश) या सरकारी खरीद आदेश के तहत कवर किया गया है तो अनिवार्य; अन्यथा स्वैच्छिक। वर्तमान BIS/QCO अधिसूचनाएं सत्यापित करें।"
+            if is_hi else
+            "May be mandatory if covered by a QCO or procurement requirement; otherwise potentially voluntary. Verify current BIS/QCO notifications."
+        )
+    return (
+        "वर्तमान कैटलॉग मिलान से निर्धारित नहीं किया जा सकता; BIS और नवीनतम QCO अधिसूचनाओं से सत्यापित करें।"
+        if is_hi else
+        "Cannot determine from current catalogue match; verify with BIS and the latest QCO notifications."
+    )
 
 
-def _certification_requirement(query: str, has_codes: bool) -> str:
+def _certification_requirement(query: str, has_codes: bool, language: str = "en") -> str:
     lower = str(query or "").lower()
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
     if any(term in lower for term in HALLMARKING_TERMS):
-        return "Yes for covered hallmarking categories, subject to current BIS rules."
+        return (
+            "हाँ, कवर की गई हॉलमार्किंग श्रेणियों के लिए BIS नियमों के अनुसार अनिवार्य है।"
+            if is_hi else
+            "Yes for covered hallmarking categories, subject to current BIS rules."
+        )
     if has_codes:
-        return "Likely required for regulated categories; verify applicability on Manak Online and BIS scheme documents."
-    return "Undetermined until applicable IS code and scheme are confirmed with BIS."
+        return (
+            "विनियमित श्रेणियों के लिए आवश्यक; मानक ऑनलाइन और BIS स्कीम दस्तावेजों पर प्रयोज्यता सत्यापित करें।"
+            if is_hi else
+            "Likely required for regulated categories; verify applicability on Manak Online and BIS scheme documents."
+        )
+    return (
+        "जब तक BIS के साथ लागू IS कोड और योजना की पुष्टि नहीं हो जाती, तब तक अनिर्धारित।"
+        if is_hi else
+        "Undetermined until applicable IS code and scheme are confirmed with BIS."
+    )
 
 
-def _applicable_scheme(query: str, audience: str) -> str:
+def _applicable_scheme(query: str, audience: str, language: str = "en") -> str:
     lower = str(query or "").lower()
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
     if any(term in lower for term in HALLMARKING_TERMS):
-        return "Hallmarking Scheme with HUID verification"
+        return "HUID सत्यापन के साथ हॉलमार्किंग योजना" if is_hi else "Hallmarking Scheme with HUID verification"
     if audience in {"consumer", "industry_and_consumer"} and any(
         term in lower for term in ("complaint", "consumer", "misuse", "fake")
     ):
-        return "Consumer engagement and complaint handling channel"
-    return "Product Certification Scheme (ISI Mark)"
+        return "उपभोक्ता मामले और शिकायत निवारण चैनल" if is_hi else "Consumer engagement and complaint handling channel"
+    return "उत्पाद प्रमाणन योजना (ISI मार्क)" if is_hi else "Product Certification Scheme (ISI Mark)"
 
 
-def _extract_relevant_clauses(codes: list[str], limit: int = 6) -> list[str]:
+def _extract_relevant_clauses(codes: list[str], language: str = "en", limit: int = 6) -> list[str]:
     lookup = _standard_lookup()
     clauses: list[str] = []
     seen: set[str] = set()
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
     for code in codes:
         standard = lookup.get(normalize_standard_code(code), {})
         text = " ".join(
@@ -3664,7 +3724,7 @@ def _extract_relevant_clauses(codes: list[str], limit: int = 6) -> list[str]:
             for field in ("scope", "body", "chunk_text")
         )
         for match in CLAUSE_PATTERN.findall(text):
-            clause_ref = f"{code} Clause {match}"
+            clause_ref = f"{code} खंड (Clause) {match}" if is_hi else f"{code} Clause {match}"
             if clause_ref not in seen:
                 clauses.append(clause_ref)
                 seen.add(clause_ref)
@@ -3673,25 +3733,43 @@ def _extract_relevant_clauses(codes: list[str], limit: int = 6) -> list[str]:
     if clauses:
         return clauses
     return [
+        "क्लॉज-स्तरीय संदर्भ कैटलॉग में संरचित नहीं हैं। आवेदन करने से पहले लौटाए गए IS कोड के आधिकारिक मानक दस्तावेज से लागू क्लॉज मैप करें।"
+        if is_hi else
         "Clause-level references are not explicitly structured in the bundled catalogue text. Open the official standard document for the returned IS code and map applicable clauses before filing."
     ]
 
 
-def _required_tests_for_query(query: str, codes: list[str]) -> list[str]:
+def _required_tests_for_query(query: str, codes: list[str], language: str = "en") -> list[str]:
     lower = str(query or "").lower()
-    tests = [
-        "Identify product-specific test methods and acceptance criteria from the official IS text.",
-        "Prepare representative samples with lot traceability and test records.",
-        "Verify test conditions, apparatus, and reporting format with BIS-recognized lab requirements.",
-    ]
-    if any(term in lower for term in ELECTRICAL_TERMS):
-        tests.append("Include electrical safety and performance test parameters where applicable.")
-    if any(term in lower for term in FOOD_CONTACT_TERMS):
-        tests.append("Include hygiene, migration, or food-contact safety parameters where applicable.")
-    if any(term in lower for term in ("cement", "concrete", "aggregate", "steel")):
-        tests.append("Include mechanical/physical property tests aligned to grade and usage class.")
-    if not codes:
-        tests.append("Finalize test plan only after BIS confirms the correct product family and applicable IS code.")
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
+    if is_hi:
+        tests = [
+            "आधिकारिक IS मानक पाठ से उत्पाद-विशिष्ट परीक्षण विधियों और स्वीकृति मानदंडों की पहचान करें।",
+            "लॉट ट्रेसबिलिटी और परीक्षण रिकॉर्ड के साथ प्रतिनिधि नमूने तैयार करें।",
+            "BIS-मान्यता प्राप्त प्रयोगशाला आवश्यकताओं के साथ परीक्षण उपकरण, स्थितियां और रिपोर्टिंग प्रारूप सत्यापित करें।",
+        ]
+        if any(term in lower for term in ELECTRICAL_TERMS):
+            tests.append("जहां लागू हो, विद्युत सुरक्षा और प्रदर्शन परीक्षण मापदंडों को शामिल करें।")
+        if any(term in lower for term in FOOD_CONTACT_TERMS):
+            tests.append("जहां लागू हो, स्वच्छता, प्रवासन (migration) या खाद्य-संपर्क सुरक्षा मापदंडों को शामिल करें।")
+        if any(term in lower for term in ("cement", "concrete", "aggregate", "steel")):
+            tests.append("ग्रेड और उपयोग वर्ग के अनुरूप यांत्रिक/भौतिक संपत्ति परीक्षण शामिल करें।")
+        if not codes:
+            tests.append("BIS द्वारा सही उत्पाद परिवार और लागू IS कोड की पुष्टि के बाद ही परीक्षण योजना को अंतिम रूप दें।")
+    else:
+        tests = [
+            "Identify product-specific test methods and acceptance criteria from the official IS text.",
+            "Prepare representative samples with lot traceability and test records.",
+            "Verify test conditions, apparatus, and reporting format with BIS-recognized lab requirements.",
+        ]
+        if any(term in lower for term in ELECTRICAL_TERMS):
+            tests.append("Include electrical safety and performance test parameters where applicable.")
+        if any(term in lower for term in FOOD_CONTACT_TERMS):
+            tests.append("Include hygiene, migration, or food-contact safety parameters where applicable.")
+        if any(term in lower for term in ("cement", "concrete", "aggregate", "steel")):
+            tests.append("Include mechanical/physical property tests aligned to grade and usage class.")
+        if not codes:
+            tests.append("Finalize test plan only after BIS confirms the correct product family and applicable IS code.")
     return tests[:5]
 
 
@@ -3701,9 +3779,11 @@ def _build_compliance_report(
     recommendations: list[dict[str, Any]],
     bis_services: dict[str, Any],
     roadmap: dict[str, Any],
- ) -> dict[str, Any]:
+    language: str = "en",
+) -> dict[str, Any]:
     audience = str(bis_services.get("audience") or _query_audience(query))
     has_codes = bool(retrieved_codes)
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
     source_links = [
         str(item.get("source_url") or "")
         for item in recommendations
@@ -3723,13 +3803,13 @@ def _build_compliance_report(
 
     return {
         "product_description": query,
-        "classification": _classify_product_family(query),
+        "classification": _classify_product_family(query, language=language),
         "applicable_indian_standards": retrieved_codes,
-        "mandatory_or_voluntary": _mandatory_status(query, has_codes),
-        "certification_required": _certification_requirement(query, has_codes),
-        "applicable_bis_scheme": _applicable_scheme(query, audience),
-        "relevant_clauses": _extract_relevant_clauses(retrieved_codes),
-        "required_tests": _required_tests_for_query(query, retrieved_codes),
+        "mandatory_or_voluntary": _mandatory_status(query, has_codes, language=language),
+        "certification_required": _certification_requirement(query, has_codes, language=language),
+        "applicable_bis_scheme": _applicable_scheme(query, audience, language=language),
+        "relevant_clauses": _extract_relevant_clauses(retrieved_codes, language=language),
+        "required_tests": _required_tests_for_query(query, retrieved_codes, language=language),
         "suggested_labs": list(roadmap.get("suggested_labs") or []),
         "estimated_compliance_workflow": [
             str(step.get("title") or "")
@@ -3737,7 +3817,7 @@ def _build_compliance_report(
             if str(step.get("title") or "")
         ],
         "source_links": unique_links,
-        "verification_note": VERIFY_WITH_BIS_NOTE,
+        "verification_note": VERIFY_WITH_BIS_NOTE_HI if is_hi else VERIFY_WITH_BIS_NOTE,
     }
 
 
@@ -3766,26 +3846,32 @@ def _append_service_link(
     seen_urls.add(url)
 
 
-def _bis_service_guidance(query: str, out_of_scope: bool) -> dict[str, Any]:
+def _bis_service_guidance(query: str, out_of_scope: bool, language: str = "en") -> dict[str, Any]:
     lower = str(query or "").lower()
     audience = _query_audience(query)
     includes_hallmarking = any(term in lower for term in HALLMARKING_TERMS)
-    services = ["Indian Standards search and preview"]
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
+
+    services = ["भारतीय मानक खोज और पूर्वावलोकन" if is_hi else "Indian Standards search and preview"]
     next_steps: list[str] = []
     links: list[dict[str, str]] = []
     seen_urls: set[str] = set()
 
-    _append_service_link(links, seen_urls, "BIS official website", BIS_HOME_URL)
-    _append_service_link(links, seen_urls, "Download or preview Indian Standards", BIS_STANDARDS_DOWNLOAD_URL)
-    _append_service_link(links, seen_urls, "Manak Online services", MANAK_ONLINE_URL)
+    _append_service_link(links, seen_urls, "BIS आधिकारिक वेबसाइट" if is_hi else "BIS official website", BIS_HOME_URL)
+    _append_service_link(links, seen_urls, "भारतीय मानक डाउनलोड या पूर्वावलोकन" if is_hi else "Download or preview Indian Standards", BIS_STANDARDS_DOWNLOAD_URL)
+    _append_service_link(links, seen_urls, "मानक ऑनलाइन (Manak Online)" if is_hi else "Manak Online services", MANAK_ONLINE_URL)
 
     if out_of_scope:
         next_steps.append(
+            "वर्तमान कैटलॉग में लागू IS कोड नहीं मिला; कोई भी कदम उठाने से पहले BIS खोज, मानक ऑनलाइन या निकटतम BIS कार्यालय से सत्यापित करें।"
+            if is_hi else
             "The bundled retrieval catalogue did not return an in-scope IS code; verify the product "
             "category through BIS search, Manak Online, or the relevant BIS office before acting."
         )
     else:
         next_steps.append(
+            "लौटाए गए मानक रिकॉर्ड खोलें और प्रमाणन या खरीद निर्णय से पहले उत्पाद ग्रेड, सामग्री, इच्छित उपयोग और नवीनतम स्थिति की पुष्टि करें।"
+            if is_hi else
             "Open the returned standard records and confirm product grade, material, intended use, "
             "and current amendment status before certification or procurement decisions."
         )
@@ -3793,46 +3879,53 @@ def _bis_service_guidance(query: str, out_of_scope: bool) -> dict[str, Any]:
     if audience in {"industry", "industry_and_consumer", "industry_or_consumer"}:
         services.extend(
             [
-                "Product Certification and ISI mark route",
-                "Testing facilities and BIS recognised laboratories",
-                "Application and licence actions through Manak Online",
+                "उत्पाद प्रमाणन और ISI मार्क मार्ग" if is_hi else "Product Certification and ISI mark route",
+                "परीक्षण सुविधाएं और BIS मान्यता प्राप्त प्रयोगशालाएं" if is_hi else "Testing facilities and BIS recognised laboratories",
+                "मानक ऑनलाइन के माध्यम से आवेदन और लाइसेंस प्रक्रिया" if is_hi else "Application and licence actions through Manak Online",
             ]
         )
         next_steps.extend(
             [
+                "प्रत्येक उत्पाद वेरिएंट को लौटाए गए या आधिकारिक तौर पर सत्यापित IS कोड से मैप करें।"
+                if is_hi else
                 "Map each product variant to the returned or officially verified IS code.",
-                "Review the BIS product certification route and prepare factory, quality-control, "
-                "raw-material, and test evidence before applying.",
+                "BIS उत्पाद प्रमाणन मार्ग की समीक्षा करें और आवेदन से पहले कारखाना, गुणवत्ता नियंत्रण, कच्चा माल और परीक्षण साक्ष्य तैयार करें।"
+                if is_hi else
+                "Review the BIS product certification route and prepare factory, quality-control, raw-material, and test evidence before applying.",
+                "जमा करने से पहले लागू IS कोड के लिए सक्षम परीक्षण प्रयोगशाला की पहचान करें।"
+                if is_hi else
                 "Identify a competent test facility for the applicable IS code before submission.",
             ]
         )
         _append_service_link(
             links,
             seen_urls,
-            "BIS product certification overview",
+            "BIS उत्पाद प्रमाणन अवलोकन" if is_hi else "BIS product certification overview",
             BIS_PRODUCT_CERTIFICATION_URL,
         )
-        _append_service_link(links, seen_urls, "BIS lab test facilities", BIS_LAB_TEST_FACILITIES_URL)
+        _append_service_link(links, seen_urls, "BIS प्रयोगशाला परीक्षण सुविधाएं" if is_hi else "BIS lab test facilities", BIS_LAB_TEST_FACILITIES_URL)
 
     if includes_hallmarking:
-        services.append("Hallmarking and HUID guidance")
+        services.append("हॉलमार्किंग और HUID मार्गदर्शन" if is_hi else "Hallmarking and HUID guidance")
         next_steps.append(
-            "For precious metal articles, use BIS hallmarking guidance and HUID verification routes "
-            "instead of treating a generic product standard as sufficient."
+            "कीमती धातु वस्तुओं के लिए, सामान्य उत्पाद मानक के बजाय BIS हॉलमार्किंग मार्गदर्शन और HUID सत्यापन मार्गों का उपयोग करें।"
+            if is_hi else
+            "For precious metal articles, use BIS hallmarking guidance and HUID verification routes instead of treating a generic product standard as sufficient."
         )
-        _append_service_link(links, seen_urls, "BIS hallmarking overview", BIS_HALLMARKING_URL)
+        _append_service_link(links, seen_urls, "BIS हॉलमार्किंग अवलोकन" if is_hi else "BIS hallmarking overview", BIS_HALLMARKING_URL)
 
     if audience in {"consumer", "industry_and_consumer"}:
-        services.append("Consumer engagement and complaint guidance")
+        services.append("उपभोक्ता सहभागिता और शिकायत मार्गदर्शन" if is_hi else "Consumer engagement and complaint guidance")
         next_steps.append(
-            "For consumer complaints, suspected misuse of the BIS Standard Mark, or hallmark concerns, "
-            "use BIS consumer engagement and complaint channels."
+            "उपभोक्ता शिकायतों, BIS मानक चिह्न के संदिग्ध दुरुपयोग या हॉलमार्क संबंधी चिंताओं के लिए, BIS शिकायत चैनलों का उपयोग करें।"
+            if is_hi else
+            "For consumer complaints, suspected misuse of the BIS Standard Mark, or hallmark concerns, use BIS consumer engagement and complaint channels."
         )
-        _append_service_link(links, seen_urls, "BIS consumer overview", BIS_CONSUMER_OVERVIEW_URL)
+        _append_service_link(links, seen_urls, "BIS उपभोक्ता अवलोकन" if is_hi else "BIS consumer overview", BIS_CONSUMER_OVERVIEW_URL)
         _append_service_link(
             links,
             seen_urls,
-            "BIS online complaint registration",
+            "BIS ऑनलाइन शिकायत पंजीकरण" if is_hi else "BIS online complaint registration",
             BIS_CONSUMER_COMPLAINT_URL,
         )
 
@@ -3841,7 +3934,7 @@ def _bis_service_guidance(query: str, out_of_scope: bool) -> dict[str, Any]:
         "relevant_services": services,
         "next_steps": next_steps,
         "official_links": links,
-        "verification_note": VERIFY_WITH_BIS_NOTE,
+        "verification_note": VERIFY_WITH_BIS_NOTE_HI if is_hi else VERIFY_WITH_BIS_NOTE,
     }
 
 
@@ -3850,107 +3943,198 @@ def _build_compliance_roadmap(
     retrieved_codes: list[str],
     out_of_scope: bool,
     bis_services: dict[str, Any],
+    language: str = "en",
 ) -> dict[str, Any]:
     lower = str(query or "").lower()
     audience = str(bis_services.get("audience") or _query_audience(query))
     includes_hallmarking = any(term in lower for term in HALLMARKING_TERMS)
     has_codes = bool(retrieved_codes)
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
 
-    schemes = [
-        "Indian Standards conformity assessment (code applicability verification)",
-        "Product Certification Scheme (ISI Mark)",
-    ]
-    if includes_hallmarking:
-        schemes.append("Hallmarking Scheme with HUID verification")
-    if audience in {"consumer", "industry_and_consumer"}:
-        schemes.append("Consumer affairs and complaint handling channel")
+    if is_hi:
+        schemes = [
+            "भारतीय मानक अनुरूपता मूल्यांकन (कोड प्रयोज्यता सत्यापन)",
+            "उत्पाद प्रमाणन योजना (ISI मार्क)",
+        ]
+        if includes_hallmarking:
+            schemes.append("HUID सत्यापन के साथ हॉलमार्किंग योजना")
+        if audience in {"consumer", "industry_and_consumer"}:
+            schemes.append("उपभोक्ता मामले और शिकायत निवारण चैनल")
 
-    labs = [
-        "BIS Laboratory Information Management System (LIMS) facility lookup",
-        "BIS recognised external lab aligned to applicable IS code and test parameters",
-    ]
-    if out_of_scope:
-        labs.append("Consult BIS office for product-family mapping before sample testing")
+        labs = [
+            "BIS प्रयोगशाला सूचना प्रबंधन प्रणाली (LIMS) सुविधा खोज",
+            "लागू IS कोड और परीक्षण मापदंडों से जुड़ी BIS मान्यता प्राप्त प्रयोगशाला",
+        ]
+        if out_of_scope:
+            labs.append("नमूना परीक्षण से पहले उत्पाद-परिवार मैपिंग के लिए BIS कार्यालय से परामर्श करें")
 
-    process = [
-        "Validate exact IS code, title, part/section, and amendment status.",
-        "Confirm scheme route and applicant eligibility on BIS/Manak portals.",
-        "Prepare documents, test samples, and quality-control evidence.",
-        "Plan factory assessment, licensing workflow, and post-approval obligations.",
-    ]
+        process = [
+            "सटीक IS कोड, शीर्षक, भाग/खंड और संशोधन स्थिति को मान्य करें।",
+            "BIS/मानक पोर्टल पर योजना मार्ग और आवेदक पात्रता की पुष्टि करें।",
+            "दस्तावेज़, परीक्षण नमूने और गुणवत्ता-नियंत्रण साक्ष्य तैयार करें।",
+            "कारखाना मूल्यांकन, लाइसेंसिंग कार्यप्रवाह और अनुमोदन उपरांत दायित्वों की योजना बनाएं।",
+        ]
 
-    first_step_title = "Confirm applicable standard"
-    first_step_action = (
-        "Use BIS search and Manak portal to validate the exact standard, including part, section, "
-        "grade, and latest status."
-    )
-    if out_of_scope or not has_codes:
-        first_step_title = "Find applicable product family"
+        first_step_title = "लागू मानक की पुष्टि करें"
         first_step_action = (
-            "Current retrieval did not return an in-catalog code; use BIS search and BIS support "
-            "channels to confirm the right product family and applicable IS code."
+            "सटीक मानक, भाग, खंड, ग्रेड और नवीनतम स्थिति को मान्य करने के लिए BIS खोज और मानक पोर्टल का उपयोग करें।"
         )
+        if out_of_scope or not has_codes:
+            first_step_title = "लागू उत्पाद परिवार खोजें"
+            first_step_action = (
+                "वर्तमान कैटलॉग में कोड नहीं मिला; सही उत्पाद परिवार और लागू IS कोड की पुष्टि के लिए BIS खोज और BIS सहायता चैनलों का उपयोग करें।"
+            )
 
-    steps = [
-        {
-            "step_no": 1,
-            "title": first_step_title,
-            "action": first_step_action,
-            "official_link": BIS_STANDARDS_DOWNLOAD_URL,
-        },
-        {
-            "step_no": 2,
-            "title": "Choose BIS scheme and application route",
-            "action": (
-                "Review Product Certification/ISI (or Hallmarking/Consumer routes where relevant) "
-                "and map your product and use-case to the correct BIS service path."
-            ),
-            "official_link": BIS_PRODUCT_CERTIFICATION_URL,
-        },
-        {
-            "step_no": 3,
-            "title": "Prepare documents and apply on Manak Online",
-            "action": (
-                "Compile manufacturing details, QC procedures, and product information, then start "
-                "or track application/licence activities through Manak Online."
-            ),
-            "official_link": MANAK_ONLINE_URL,
-        },
-        {
-            "step_no": 4,
-            "title": "Plan testing through BIS labs",
-            "action": (
-                "Select suitable BIS/recognised laboratory setup for the applicable standard and "
-                "ensure sample and test readiness before formal submission."
-            ),
-            "official_link": BIS_LAB_TEST_FACILITIES_URL,
-        },
-        {
-            "step_no": 5,
-            "title": "Complete verification and post-approval compliance",
-            "action": (
-                "Before market claims, verify conditions, surveillance, marking, and consumer-facing "
-                "obligations directly with BIS notifications and scheme documents."
-            ),
-            "official_link": BIS_FAQ_URL,
-        },
-    ]
-
-    if includes_hallmarking:
-        steps.insert(
-            3,
+        steps = [
+            {
+                "step_no": 1,
+                "title": first_step_title,
+                "action": first_step_action,
+                "official_link": BIS_STANDARDS_DOWNLOAD_URL,
+            },
+            {
+                "step_no": 2,
+                "title": "BIS योजना और आवेदन मार्ग चुनें",
+                "action": (
+                    "उत्पाद प्रमाणन/ISI (या जहां प्रासंगिक हो हॉलमार्किंग/उपभोक्ता मार्ग) की समीक्षा करें और अपने उत्पाद को सही BIS सेवा पथ पर मैप करें।"
+                ),
+                "official_link": BIS_PRODUCT_CERTIFICATION_URL,
+            },
+            {
+                "step_no": 3,
+                "title": "दस्तावेज़ तैयार करें और मानक ऑनलाइन पर आवेदन करें",
+                "action": (
+                    "विनिर्माण विवरण, QC प्रक्रियाएं और उत्पाद जानकारी संकलित करें, फिर मानक ऑनलाइन (Manak Online) के माध्यम से आवेदन शुरू करें।"
+                ),
+                "official_link": MANAK_ONLINE_URL,
+            },
             {
                 "step_no": 4,
-                "title": "Follow hallmarking and HUID process",
+                "title": "BIS प्रयोगशालाओं के माध्यम से परीक्षण की योजना बनाएं",
                 "action": (
-                    "For jewellery/precious metal items, follow hallmarking-specific registration and "
-                    "HUID verification workflow instead of generic product certification assumptions."
+                    "लागू मानक के लिए उपयुक्त BIS/मान्यता प्राप्त प्रयोगशाला सेटअप चुनें और औपचारिक प्रस्तुति से पहले नमूना तत्परता सुनिश्चित करें।"
                 ),
-                "official_link": BIS_HALLMARKING_URL,
+                "official_link": BIS_LAB_TEST_FACILITIES_URL,
             },
+            {
+                "step_no": 5,
+                "title": "सत्यापन और अनुमोदन उपरांत अनुपालन पूरा करें",
+                "action": (
+                    "बाजार दावों से पहले, BIS अधिसूचनाओं और योजना दस्तावेजों के साथ शर्तों, निगरानी और अंकन दायित्वों को सीधे सत्यापित करें।"
+                ),
+                "official_link": BIS_FAQ_URL,
+            },
+        ]
+        if includes_hallmarking:
+            steps.insert(
+                3,
+                {
+                    "step_no": 4,
+                    "title": "हॉलमार्किंग और HUID प्रक्रिया का पालन करें",
+                    "action": (
+                        "आभूषण/कीमती धातु की वस्तुओं के लिए, सामान्य उत्पाद प्रमाणन के बजाय हॉलमार्किंग-विशिष्ट पंजीकरण और HUID सत्यापन कार्यप्रवाह का पालन करें।"
+                    ),
+                    "official_link": BIS_HALLMARKING_URL,
+                },
+            )
+            for index, step in enumerate(steps, start=1):
+                step["step_no"] = index
+
+    else:
+        schemes = [
+            "Indian Standards conformity assessment (code applicability verification)",
+            "Product Certification Scheme (ISI Mark)",
+        ]
+        if includes_hallmarking:
+            schemes.append("Hallmarking Scheme with HUID verification")
+        if audience in {"consumer", "industry_and_consumer"}:
+            schemes.append("Consumer affairs and complaint handling channel")
+
+        labs = [
+            "BIS Laboratory Information Management System (LIMS) facility lookup",
+            "BIS recognised external lab aligned to applicable IS code and test parameters",
+        ]
+        if out_of_scope:
+            labs.append("Consult BIS office for product-family mapping before sample testing")
+
+        process = [
+            "Validate exact IS code, title, part/section, and amendment status.",
+            "Confirm scheme route and applicant eligibility on BIS/Manak portals.",
+            "Prepare documents, test samples, and quality-control evidence.",
+            "Plan factory assessment, licensing workflow, and post-approval obligations.",
+        ]
+
+        first_step_title = "Confirm applicable standard"
+        first_step_action = (
+            "Use BIS search and Manak portal to validate the exact standard, including part, section, "
+            "grade, and latest status."
         )
-        for index, step in enumerate(steps, start=1):
-            step["step_no"] = index
+        if out_of_scope or not has_codes:
+            first_step_title = "Find applicable product family"
+            first_step_action = (
+                "Current retrieval did not return an in-catalog code; use BIS search and BIS support "
+                "channels to confirm the right product family and applicable IS code."
+            )
+
+        steps = [
+            {
+                "step_no": 1,
+                "title": first_step_title,
+                "action": first_step_action,
+                "official_link": BIS_STANDARDS_DOWNLOAD_URL,
+            },
+            {
+                "step_no": 2,
+                "title": "Choose BIS scheme and application route",
+                "action": (
+                    "Review Product Certification/ISI (or Hallmarking/Consumer routes where relevant) "
+                    "and map your product and use-case to the correct BIS service path."
+                ),
+                "official_link": BIS_PRODUCT_CERTIFICATION_URL,
+            },
+            {
+                "step_no": 3,
+                "title": "Prepare documents and apply on Manak Online",
+                "action": (
+                    "Compile manufacturing details, QC procedures, and product information, then start "
+                    "or track application/licence activities through Manak Online."
+                ),
+                "official_link": MANAK_ONLINE_URL,
+            },
+            {
+                "step_no": 4,
+                "title": "Plan testing through BIS labs",
+                "action": (
+                    "Select suitable BIS/recognised laboratory setup for the applicable standard and "
+                    "ensure sample and test readiness before formal submission."
+                ),
+                "official_link": BIS_LAB_TEST_FACILITIES_URL,
+            },
+            {
+                "step_no": 5,
+                "title": "Complete verification and post-approval compliance",
+                "action": (
+                    "Before market claims, verify conditions, surveillance, marking, and consumer-facing "
+                    "obligations directly with BIS notifications and scheme documents."
+                ),
+                "official_link": BIS_FAQ_URL,
+            },
+        ]
+        if includes_hallmarking:
+            steps.insert(
+                3,
+                {
+                    "step_no": 4,
+                    "title": "Follow hallmarking and HUID process",
+                    "action": (
+                        "For jewellery/precious metal items, follow hallmarking-specific registration and "
+                        "HUID verification workflow instead of generic product certification assumptions."
+                    ),
+                    "official_link": BIS_HALLMARKING_URL,
+                },
+            )
+            for index, step in enumerate(steps, start=1):
+                step["step_no"] = index
 
     return {
         "audience": audience,
@@ -3958,8 +4142,45 @@ def _build_compliance_roadmap(
         "suggested_labs": labs,
         "process_summary": process,
         "steps": steps,
-        "verification_note": VERIFY_WITH_BIS_NOTE,
+        "verification_note": VERIFY_WITH_BIS_NOTE_HI if is_hi else VERIFY_WITH_BIS_NOTE,
     }
+
+
+GENERIC_DOCUMENTS_HI = [
+    "सामग्री, ग्रेड, आयाम और इच्छित उपयोग के साथ विस्तृत उत्पाद विवरण।",
+    "प्रत्येक लौटाए गए IS कोड के विरुद्ध मैप करने के लिए उत्पाद वेरिएंट, आकार, ग्रेड और लेबल की सूची।",
+    "विनिर्माण प्रक्रिया नोट और गुणवत्ता-नियंत्रण (QC) जांच बिंदु।",
+    "कच्चे माल के विनिर्देश और आपूर्तिकर्ता परीक्षण रिकॉर्ड।",
+    "परीक्षण के लिए प्रस्तुत नमूनों के लिए बैच या लॉट पहचान रिकॉर्ड।",
+]
+
+GENERIC_TESTING_READINESS_HI = [
+    "लौटाए गए मानक के आधिकारिक पाठ में परीक्षण और स्वीकृति मानदंडों की पहचान करें।",
+    "लौटाए गए मानकों के लिए BIS-मान्यता प्राप्त या सक्षम प्रयोगशालाओं को सूचीबद्ध करें।",
+    "प्रतिनिधि नमूने तैयार करें और उत्पादन बैच की ट्रेसबिलिटी बनाए रखें।",
+    "प्रस्तुति से पहले आधिकारिक मानक पाठ के विरुद्ध परीक्षण मापदंडों की तुलना करें।",
+]
+
+GENERIC_BIS_WORKFLOW_HI = [
+    "आधिकारिक BIS पोर्टल पर लागू मानक की पुष्टि करें।",
+    "लौटाए गए IS कोड के साथ उत्पाद वेरिएंट और ग्रेड मैप करें।",
+    "प्रमाणन गतिविधि शुरू करने से पहले दस्तावेज और परीक्षण प्रमाण तैयार करें।",
+    "आधिकारिक प्रक्रिया के लिए मानक ऑनलाइन (Manak Online) या प्रासंगिक BIS चैनल का उपयोग करें।",
+]
+
+VERIFY_WITH_BIS_NOTE_HI = (
+    "प्रमाणन, परीक्षण, शुल्क, समय-सीमा या कानूनी अनुपालन के लिए इस मार्गदर्शन पर निर्भर रहने से पहले BIS से आधिकारिक सत्यापन अवश्य करें।"
+)
+
+CATEGORY_RULES_HI = (
+    (("cement", "opc", "ppc", "portland", "सीमेंट"), "सीमेंट और सीमेंटयुक्त भवन निर्माण सामग्री"),
+    (("aggregate", "aggregates", "sand", "gravel", "एग्रीगेट", "रेत"), "कंक्रीट एग्रीगेट और दानेदार सामग्री"),
+    (("pipe", "pipes", "water", "mains", "पाइप"), "कंक्रीट पाइप और जल/ड्रेनेज अवसंरचना"),
+    (("block", "blocks", "masonry", "ब्लॉक"), "चिनाई इकाइयाँ और कंक्रीट ब्लॉक"),
+    (("sheet", "roof", "roofing", "cladding", "शीट"), "छत और क्लैडिंग सामग्री"),
+    (("tmt", "saria", "reinforcement", "reinforced", "bar", "bars", "सरिया"), "कंक्रीट के लिए स्टील रीइन्फोर्समेंट"),
+    (("steel", "beam", "beams", "channel", "angle", "hollow", "tube", "plate", "स्टील"), "संरचनात्मक स्टील उत्पाद"),
+)
 
 
 def _tokenize_guidance_text(text: str) -> list[str]:
@@ -3982,9 +4203,10 @@ def _matched_terms(query: str, recommendations: list[dict[str, Any]], limit: int
     return matched
 
 
-def _matched_category(query: str, recommendations: list[dict[str, Any]]) -> str:
+def _matched_category(query: str, recommendations: list[dict[str, Any]], language: str = "en") -> str:
     query_tokens = set(_tokenize_guidance_text(query))
-    category_rules = (
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
+    rules = CATEGORY_RULES_HI if is_hi else (
         (("cement", "opc", "ppc", "portland"), "Cement and cementitious building material"),
         (("aggregate", "aggregates", "sand", "gravel"), "Concrete aggregates and granular material"),
         (("pipe", "pipes", "water", "mains"), "Concrete pipes and drainage/water infrastructure"),
@@ -3993,12 +4215,12 @@ def _matched_category(query: str, recommendations: list[dict[str, Any]]) -> str:
         (("tmt", "saria", "reinforcement", "reinforced", "bar", "bars"), "Steel reinforcement for concrete"),
         (("steel", "beam", "beams", "channel", "angle", "hollow", "tube", "plate"), "Structural steel product"),
     )
-    for terms, category in category_rules:
+    for terms, category in rules:
         if any(term in query_tokens for term in terms):
             return category
     if recommendations:
-        return str(recommendations[0].get("title") or "BIS catalogue product family")
-    return "No current catalogue match"
+        return str(recommendations[0].get("title") or ("BIS कैटलॉग उत्पाद श्रेणी" if is_hi else "BIS catalogue product family"))
+    return "वर्तमान कैटलॉग में कोई मिलान नहीं" if is_hi else "No current catalogue match"
 
 
 def _fallback_business_guidance(
@@ -4006,50 +4228,66 @@ def _fallback_business_guidance(
     retrieved_codes: list[str],
     recommendations: list[dict[str, Any]],
     out_of_scope: bool,
+    language: str = "en",
 ) -> dict[str, Any]:
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
     if out_of_scope or not retrieved_codes:
         return {
-            "matched_category": "Outside current catalogue or no returned standard",
+            "matched_category": "वर्तमान कैटलॉग से बाहर या कोई मानक नहीं लौटा" if is_hi else "Outside current catalogue or no returned standard",
             "matched_terms": [
                 token for token in _tokenize_guidance_text(query) if token not in GUIDANCE_STOP_WORDS
             ][:5],
             "why_these_standards": [],
             "documents_to_prepare": [],
             "testing_lab_readiness": [],
-            "bis_workflow": ["Verify the product category and applicable standards directly with BIS."],
-            "verification_notes": [VERIFY_WITH_BIS_NOTE],
+            "bis_workflow": [
+                "उत्पाद श्रेणी और लागू मानकों को सीधे BIS के साथ सत्यापित करें।"
+                if is_hi else
+                "Verify the product category and applicable standards directly with BIS."
+            ],
+            "verification_notes": [VERIFY_WITH_BIS_NOTE_HI if is_hi else VERIFY_WITH_BIS_NOTE],
             "ai_generated": False,
         }
 
     why = []
-    category = _matched_category(query, recommendations)
+    category = _matched_category(query, recommendations, language=language)
     terms = _matched_terms(query, recommendations)
-    terms_text = ", ".join(terms) if terms else "the submitted product words"
+    terms_text = ", ".join(terms) if terms else ("उत्पाद के मुख्य शब्द" if is_hi else "the submitted product words")
     for index, item in enumerate(recommendations, start=1):
         code = str(item.get("code") or retrieved_codes[index - 1])
-        title = str(item.get("title") or "BIS catalogue standard")
+        title = str(item.get("title") or ("BIS कैटलॉग मानक" if is_hi else "BIS catalogue standard"))
         confidence = int(float(item.get("confidence") or 0) * 100)
         if index == 1:
-            why.append(
-                f"Top candidate: {code} aligns with matched terms ({terms_text}) in category "
-                f"{category}; rank {index}, confidence {confidence}%, title/scope: {title}."
-            )
+            if is_hi:
+                why.append(
+                    f"शीर्ष उम्मीदवार: {code} श्रेणी '{category}' में मिलान किए गए शब्दों ({terms_text}) से मेल खाता है; रैंक {index}, विश्वसनीयता {confidence}%, शीर्षक/दायरा: {title}।"
+                )
+            else:
+                why.append(
+                    f"Top candidate: {code} aligns with matched terms ({terms_text}) in category "
+                    f"{category}; rank {index}, confidence {confidence}%, title/scope: {title}."
+                )
         else:
-            why.append(
-                f"Additional candidate rank {index}: {code} is related to category {category}; "
-                f"confidence {confidence}%, verify whether {title} applies to this exact grade and use."
-            )
+            if is_hi:
+                why.append(
+                    f"अतिरिक्त उम्मीदवार रैंक {index}: {code} श्रेणी '{category}' से संबंधित है; विश्वसनीयता {confidence}%, सत्यापित करें कि क्या {title} इस सटीक ग्रेड और उपयोग पर लागू होता है।"
+                )
+            else:
+                why.append(
+                    f"Additional candidate rank {index}: {code} is related to category {category}; "
+                    f"confidence {confidence}%, verify whether {title} applies to this exact grade and use."
+                )
 
     return {
         "matched_category": category,
         "matched_terms": terms,
         "why_these_standards": why,
-        "documents_to_prepare": GENERIC_DOCUMENTS,
-        "testing_lab_readiness": GENERIC_TESTING_READINESS,
-        "bis_workflow": GENERIC_BIS_WORKFLOW,
+        "documents_to_prepare": GENERIC_DOCUMENTS_HI if is_hi else GENERIC_DOCUMENTS,
+        "testing_lab_readiness": GENERIC_TESTING_READINESS_HI if is_hi else GENERIC_TESTING_READINESS,
+        "bis_workflow": GENERIC_BIS_WORKFLOW_HI if is_hi else GENERIC_BIS_WORKFLOW,
         "verification_notes": [
-            "Only the returned IS codes are used in this guidance.",
-            VERIFY_WITH_BIS_NOTE,
+            "इस मार्गदर्शन में केवल लौटाए गए IS कोड का उपयोग किया गया है।" if is_hi else "Only the returned IS codes are used in this guidance.",
+            VERIFY_WITH_BIS_NOTE_HI if is_hi else VERIFY_WITH_BIS_NOTE,
         ],
         "ai_generated": False,
     }
@@ -4082,30 +4320,124 @@ def _guidance_mentions_only_allowed_codes(guidance: dict[str, Any], allowed_code
     return True
 
 
-def _normalize_guidance_payload(payload: Any, allowed_codes: set[str]) -> dict[str, Any] | None:
+def _as_list_of_strings(val: Any, limit: int = 5, max_len: int = 260) -> list[str]:
+    if isinstance(val, str):
+        val = val.strip()
+        return [val[:max_len]] if val else []
+    if isinstance(val, list):
+        return [str(x)[:max_len] for x in val if str(x).strip()][:limit]
+    return []
+
+
+def _normalize_guidance_payload(payload: Any, allowed_codes: set[str], language: str = "en") -> dict[str, Any] | None:
     if not isinstance(payload, dict):
         return None
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
     normalized: dict[str, Any] = {
-        "matched_category": str(payload.get("matched_category") or "BIS catalogue product family")[:140],
-        "matched_terms": [str(item)[:48] for item in payload.get("matched_terms") or []][:8],
-        "why_these_standards": [str(item)[:220] for item in payload.get("why_these_standards") or []][:5],
-        "documents_to_prepare": [str(item)[:180] for item in payload.get("documents_to_prepare") or []][:5],
-        "testing_lab_readiness": [str(item)[:180] for item in payload.get("testing_lab_readiness") or []][:5],
-        "bis_workflow": [str(item)[:180] for item in payload.get("bis_workflow") or []][:5],
-        "verification_notes": [str(item)[:220] for item in payload.get("verification_notes") or []][:5],
+        "matched_category": str(payload.get("matched_category") or ("BIS कैटलॉग उत्पाद श्रेणी" if is_hi else "BIS catalogue product family"))[:140],
+        "matched_terms": _as_list_of_strings(payload.get("matched_terms"), limit=8, max_len=48),
+        "why_these_standards": _as_list_of_strings(payload.get("why_these_standards"), limit=5, max_len=260),
+        "documents_to_prepare": _as_list_of_strings(payload.get("documents_to_prepare"), limit=5, max_len=220),
+        "testing_lab_readiness": _as_list_of_strings(payload.get("testing_lab_readiness"), limit=5, max_len=220),
+        "bis_workflow": _as_list_of_strings(payload.get("bis_workflow"), limit=5, max_len=220),
+        "verification_notes": _as_list_of_strings(payload.get("verification_notes"), limit=5, max_len=260),
         "ai_generated": True,
     }
-    if not any("verify with bis" in note.lower() for note in normalized["verification_notes"]):
-        normalized["verification_notes"].append(VERIFY_WITH_BIS_NOTE)
+    has_verify = any(
+        "verify with bis" in note.lower() or "सत्यापित" in note or "सत्यापन" in note
+        for note in normalized["verification_notes"]
+    )
+    if not has_verify:
+        normalized["verification_notes"].append(VERIFY_WITH_BIS_NOTE_HI if is_hi else VERIFY_WITH_BIS_NOTE)
     if not _guidance_mentions_only_allowed_codes(normalized, allowed_codes):
         return None
     return normalized
+
+
+def _gemini_business_guidance(
+    query: str,
+    retrieved_codes: list[str],
+    recommendations: list[dict[str, Any]],
+    language: str = "en",
+) -> dict[str, Any] | None:
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key or not retrieved_codes:
+        return None
+
+    standards = [
+        {
+            "code": item.get("code"),
+            "title": item.get("title"),
+            "rationale": item.get("rationale"),
+        }
+        for item in recommendations
+    ]
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
+    lang_inst = (
+        "Respond in pure standard Hindi (Devanagari script) with high clarity. All values must be in Hindi, keeping official IS codes formatted as 'IS 269: 1989'."
+        if is_hi else
+        "Respond in English."
+    )
+    prompt = {
+        "query": query,
+        "language_instruction": lang_inst,
+        "retrieved_standards": standards,
+        "rules": [
+            "Return compact JSON only with the requested keys: matched_category, matched_terms, why_these_standards, documents_to_prepare, testing_lab_readiness, bis_workflow, verification_notes.",
+            "Only mention IS codes present in retrieved_standards.",
+            "Do not invent fees, timelines, forms, legal claims, certification guarantees, or standards.",
+            "Always include advice to verify with BIS in verification_notes.",
+        ],
+    }
+    model = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    system_prompt = (
+        "You are a cautious BIS standards compliance intelligence agent for MSME enterprises. "
+        + f"Use only the supplied standards. {lang_inst}\\n\\n"
+        + f"Input Data:\\n{json.dumps(prompt, ensure_ascii=False)}"
+    )
+    request_body = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": system_prompt}],
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.1,
+            "maxOutputTokens": 3000,
+            "responseMimeType": "application/json",
+        },
+    }
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(request_body).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=6.0) as response:
+            res_payload = json.loads(response.read().decode("utf-8"))
+    except (OSError, urllib.error.URLError, json.JSONDecodeError):
+        return None
+
+    candidates = res_payload.get("candidates", [])
+    if not candidates:
+        return None
+    content_text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+    try:
+        guidance_payload = json.loads(content_text)
+    except json.JSONDecodeError:
+        return None
+    allowed_codes = {normalize_standard_code(code) for code in retrieved_codes}
+    return _normalize_guidance_payload(guidance_payload, allowed_codes, language=language)
 
 
 def _groq_business_guidance(
     query: str,
     retrieved_codes: list[str],
     recommendations: list[dict[str, Any]],
+    language: str = "en",
 ) -> dict[str, Any] | None:
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key or not retrieved_codes:
@@ -4119,8 +4451,11 @@ def _groq_business_guidance(
         }
         for item in recommendations
     ]
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
+    lang_inst = "Respond in standard Hindi (Devanagari script)." if is_hi else "Respond in English."
     prompt = {
         "query": query,
+        "language_instruction": lang_inst,
         "retrieved_standards": standards,
         "rules": [
             "Return JSON only with the requested keys.",
@@ -4136,10 +4471,10 @@ def _groq_business_guidance(
                 "role": "system",
                 "content": (
                     "You write cautious BIS standards discovery guidance for MSE users. "
-                    "Use only the supplied retrieved standards and return compact JSON."
+                    f"Use only the supplied retrieved standards and return compact JSON. {lang_inst}"
                 ),
             },
-            {"role": "user", "content": json.dumps(prompt, ensure_ascii=True)},
+            {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
         ],
         "temperature": 0.1,
         "max_tokens": 700,
@@ -4170,7 +4505,7 @@ def _groq_business_guidance(
     except json.JSONDecodeError:
         return None
     allowed_codes = {normalize_standard_code(code) for code in retrieved_codes}
-    return _normalize_guidance_payload(guidance_payload, allowed_codes)
+    return _normalize_guidance_payload(guidance_payload, allowed_codes, language=language)
 
 
 def _answer_mentions_only_allowed_codes(answer: str, allowed_codes: set[str]) -> bool:
@@ -4187,12 +4522,12 @@ def _fallback_chat_answer(
     out_of_scope: bool,
     language: str = "en",
 ) -> str:
-    lang = language if language in {"hi", "hinglish"} else "en"
+    lang = language if language in {"hi", "hinglish"} else ("hi" if language != "en" else "en")
     if out_of_scope or not retrieved_codes:
         if lang == "hi":
             return (
                 "इस उत्पाद के लिए वर्तमान retrieval result में BIS कैटलॉग मैच नहीं मिला। "
-                f"लागू मानक सत्यापित करने के लिए official BIS portal या Manak Online देखें। {FALLBACK_CHAT_DISCLOSURE}"
+                f"लागू मानक सत्यापित करने के लिए official BIS portal या Manak Online देखें। {VERIFY_WITH_BIS_NOTE_HI}"
             )
         if lang == "hinglish":
             return (
@@ -4207,9 +4542,9 @@ def _fallback_chat_answer(
     lower = message.lower()
     top = recommendations[0] if recommendations else {}
     top_code = str(top.get("code") or retrieved_codes[0])
-    top_title = str(top.get("title") or "the top returned standard")
+    top_title = str(top.get("title") or ("शीर्ष लौटाया गया मानक" if lang == "hi" else ("the top returned standard" if lang == "en" else "top returned standard")))
     codes = ", ".join(retrieved_codes)
-    other_codes = ", ".join(retrieved_codes[1:]) or "no additional returned candidates"
+    other_codes = ", ".join(retrieved_codes[1:]) or ("कोई अतिरिक्त उम्मीदवार नहीं" if lang == "hi" else ("no additional returned candidates" if lang == "en" else "no additional returned candidates"))
     wants_process = any(
         term in lower
         for term in (
@@ -4226,19 +4561,25 @@ def _fallback_chat_answer(
             "workflow",
             "certification",
             "manak",
+            "प्रक्रिया",
+            "आवेदन",
+            "चरण",
+            "क्या करें",
+            "batao",
+            "karein",
         )
     )
 
     if wants_process:
         if lang == "hi":
             return (
-                f"Step 1: अभी {top_code} को सबसे मजबूत candidate मानें और exact product grade, material और intended use को official standard text से verify करें. Standard lookup: {BIS_STANDARD_LOOKUP_URL}\n"
-                f"Step 2: Product के लिए सही certification route समझने के लिए BIS product certification guidance देखें. Official overview: {BIS_PRODUCT_CERTIFICATION_URL}\n"
-                "Step 3: Product variant details, manufacturing process note, quality-control records, raw-material specifications और sample batch traceability तैयार करें.\n"
-                "Step 4: Official standard requirements के against testing के लिए appropriate competent lab और representative samples ready करें.\n"
-                f"Step 5: Online application/licence-related actions के लिए Manak Online use करें. Portal/help links: {MANAK_ONLINE_URL}\n"
-                f"Step 6: अगर applicable Indian Standard clear नहीं है, filing से पहले BIS FAQ देखें और BIS से verify/contact करें. FAQ: {BIS_FAQ_URL}\n"
-                f"{FALLBACK_CHAT_DISCLOSURE}"
+                f"Step 1: अभी {top_code} को सबसे उपयुक्त उम्मीदवार मानें और उत्पाद ग्रेड, सामग्री और इच्छित उपयोग को आधिकारिक मानक पाठ से सत्यापित करें। मानक खोज: {BIS_STANDARD_LOOKUP_URL}\n"
+                f"Step 2: उत्पाद के लिए सही प्रमाणन मार्ग समझने के लिए BIS उत्पाद प्रमाणन अवलोकन देखें। आधिकारिक अवलोकन: {BIS_PRODUCT_CERTIFICATION_URL}\n"
+                "Step 3: उत्पाद वेरिएंट विवरण, विनिर्माण प्रक्रिया नोट, गुणवत्ता-नियंत्रण रिकॉर्ड, कच्चे माल के विनिर्देश और नमूना बैच ट्रेसबिलिटी तैयार करें।\n"
+                "Step 4: आधिकारिक मानक आवश्यकताओं के अनुसार परीक्षण के लिए उपयुक्त सक्षम प्रयोगशाला और प्रतिनिधि नमूने तैयार करें।\n"
+                f"Step 5: ऑनलाइन आवेदन/लाइसेंस-संबंधित कार्यों के लिए मानक ऑनलाइन (Manak Online) का उपयोग करें। पोर्टल लिंक: {MANAK_ONLINE_URL}\n"
+                f"Step 6: यदि लागू भारतीय मानक स्पष्ट नहीं है, तो आवेदन से पहले BIS FAQ देखें और BIS से सीधे संपर्क करें। FAQ: {BIS_FAQ_URL}\n"
+                f"{VERIFY_WITH_BIS_NOTE_HI}"
             )
         if lang == "hinglish":
             return (
@@ -4265,11 +4606,11 @@ def _fallback_chat_answer(
             f"{FALLBACK_CHAT_DISCLOSURE}"
         )
 
-    if any(term in lower for term in ("why", "match", "selected", "applicable", "which")):
+    if any(term in lower for term in ("why", "match", "selected", "applicable", "which", "क्यों", "लागू", "kyun")):
         if lang == "hi":
             return (
-                f"सबसे मजबूत candidate {top_code} है क्योंकि इसका catalogue title/scope product description के सबसे करीब है: "
-                f"{top_title}. बाकी candidates ({other_codes}) related catalogue matches हैं; exact grade, material और intended use official BIS text से verify करें. {FALLBACK_CHAT_DISCLOSURE}"
+                f"सबसे उपयुक्त उम्मीदवार {top_code} है क्योंकि इसका कैटलॉग शीर्षक/दायरा उत्पाद विवरण के सबसे करीब है: "
+                f"{top_title}। अन्य उम्मीदवार ({other_codes}) संबंधित कैटलॉग मैच हैं; सटीक ग्रेड, सामग्री और इच्छित उपयोग आधिकारिक BIS पाठ से सत्यापित करें। {VERIFY_WITH_BIS_NOTE_HI}"
             )
         if lang == "hinglish":
             return (
@@ -4282,11 +4623,11 @@ def _fallback_chat_answer(
             f"matches and should be treated as candidates until the exact grade, material, and intended use "
             f"are checked against the official BIS text. {FALLBACK_CHAT_DISCLOSURE}"
         )
-    if any(term in lower for term in ("document", "prepare", "paper", "record")):
+    if any(term in lower for term in ("document", "prepare", "paper", "record", "दस्तावेज़", "कागजात", "dastavez")):
         if lang == "hi":
             return (
-                "Product description, grade/material details, manufacturing process note, quality-control records, raw material specifications, supplier records और sample batch traceability तैयार करें. "
-                f"Returned standards ({codes}) को BIS से verify करें. {FALLBACK_CHAT_DISCLOSURE}"
+                "उत्पाद विवरण, ग्रेड/सामग्री विवरण, विनिर्माण प्रक्रिया नोट, गुणवत्ता-नियंत्रण रिकॉर्ड, कच्चे माल के विनिर्देश, आपूर्तिकर्ता रिकॉर्ड और नमूना बैच ट्रेसबिलिटी तैयार करें। "
+                f"लौटाए गए मानकों ({codes}) को BIS से सत्यापित करें। {VERIFY_WITH_BIS_NOTE_HI}"
             )
         if lang == "hinglish":
             return (
@@ -4298,11 +4639,11 @@ def _fallback_chat_answer(
             "records, raw material specifications, supplier records, and sample batch traceability. "
             f"Use these documents to verify the returned standards ({codes}) with BIS. {FALLBACK_CHAT_DISCLOSURE}"
         )
-    if any(term in lower for term in ("test", "lab", "sample")):
+    if any(term in lower for term in ("test", "lab", "sample", "परीक्षण", "लैब", "नमूना")):
         if lang == "hi":
             return (
-                "Representative samples batch traceability के साथ तैयार करें, competent labs identify करें, और returned standards "
-                f"({codes}) के official text के against required test parameters compare करें. {FALLBACK_CHAT_DISCLOSURE}"
+                "बैच ट्रेसबिलिटी के साथ प्रतिनिधि नमूने तैयार करें, सक्षम प्रयोगशालाओं की पहचान करें, और लौटाए गए मानकों "
+                f"({codes}) के आधिकारिक पाठ के अनुसार आवश्यक परीक्षण मापदंडों की तुलना करें। {VERIFY_WITH_BIS_NOTE_HI}"
             )
         if lang == "hinglish":
             return (
@@ -4316,8 +4657,8 @@ def _fallback_chat_answer(
         )
     if lang == "hi":
         return (
-            f"मैं केवल returned standards के आधार पर answer कर सकता हूँ: {codes}. Top candidate {top_code} ({top_title}) है. "
-            f"आप match reason, documents, testing readiness या next steps पूछ सकते हैं. {FALLBACK_CHAT_DISCLOSURE}"
+            f"मैं केवल लौटाए गए मानकों के आधार पर उत्तर दे सकता हूँ: {codes}। शीर्ष उम्मीदवार {top_code} ({top_title}) है। "
+            f"आप मिलान का कारण, आवश्यक दस्तावेज़, परीक्षण तत्परता या अगले कदमों के बारे में पूछ सकते हैं। {VERIFY_WITH_BIS_NOTE_HI}"
         )
     if lang == "hinglish":
         return (
@@ -4331,12 +4672,100 @@ def _fallback_chat_answer(
     )
 
 
+def _gemini_chat_answer(
+    query: str,
+    message: str,
+    history: list[ChatMessage],
+    retrieved_codes: list[str],
+    recommendations: list[dict[str, Any]],
+    language: str = "en",
+) -> str | None:
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key or not retrieved_codes:
+        return None
+
+    standards = [
+        {
+            "code": item.get("code"),
+            "title": item.get("title"),
+            "rationale": item.get("rationale"),
+        }
+        for item in recommendations
+    ]
+    safe_history = [
+        {"role": item.role if item.role in {"user", "assistant"} else "user", "content": item.content}
+        for item in history[-6:]
+    ]
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
+    lang_inst = (
+        "Reply in pure standard Hindi (Devanagari script) with high clarity and respect. Keep official IS standard codes in English format (e.g. 'IS 269:2015'). Ensure no mixed English text leaks."
+        if is_hi else
+        "Reply in English."
+    )
+    prompt = {
+        "product_query": query,
+        "user_message": message,
+        "language_instruction": lang_inst,
+        "history": safe_history,
+        "retrieved_standards": standards,
+        "rules": [
+            "Answer only using retrieved_standards.",
+            "Only mention IS codes present in retrieved_standards.",
+            "Do not invent fees, timelines, forms, legal claims, certification guarantees, or standards.",
+            "Always include advice to verify with BIS (e.g., 'Verify with BIS' or 'BIS से आधिकारिक सत्यापन अवश्य करें').",
+        ],
+    }
+    model = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    system_prompt = (
+        "You are Udyam Saarthi, an authoritative and cautious BIS compliance intelligence assistant for MSME manufacturers. "
+        + f"Keep answers concise, strictly grounded in the supplied retrieved standards, and always mention BIS verification. {lang_inst}\n\n"
+        + f"User Question:\n{json.dumps(prompt, ensure_ascii=False)}"
+    )
+    request_body = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": system_prompt}],
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.1,
+            "maxOutputTokens": 2500,
+        },
+    }
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(request_body).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=6.0) as response:
+            response_payload = json.loads(response.read().decode("utf-8"))
+    except (OSError, urllib.error.URLError, json.JSONDecodeError):
+        return None
+
+    candidates = response_payload.get("candidates", [])
+    if not candidates:
+        return None
+    answer = str(candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")).strip()
+    allowed_codes = {normalize_standard_code(code) for code in retrieved_codes}
+    if not answer or not _answer_mentions_only_allowed_codes(answer, allowed_codes):
+        return None
+    lower_ans = answer.lower()
+    if "verify with bis" not in lower_ans and "सत्यापित" not in answer and "सत्यापन" not in answer:
+        answer = f"{answer} {VERIFY_WITH_BIS_NOTE_HI if is_hi else FALLBACK_CHAT_DISCLOSURE}"
+    return answer[:1800]
+
+
 def _groq_chat_answer(
     query: str,
     message: str,
     history: list[ChatMessage],
     retrieved_codes: list[str],
     recommendations: list[dict[str, Any]],
+    language: str = "en",
 ) -> str | None:
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key or not retrieved_codes:
@@ -4354,6 +4783,8 @@ def _groq_chat_answer(
         {"role": item.role if item.role in {"user", "assistant"} else "user", "content": item.content}
         for item in history[-6:]
     ]
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
+    lang_inst = "Reply in standard Hindi (Devanagari script)." if is_hi else "Reply in English."
     prompt = {
         "product_query": query,
         "user_message": message,
@@ -4373,10 +4804,10 @@ def _groq_chat_answer(
                 "role": "system",
                 "content": (
                     "You are a cautious BIS standards assistant for MSE users. Keep answers short, "
-                    "grounded only in supplied retrieved standards, and include BIS verification when needed."
+                    f"grounded only in supplied retrieved standards, and include BIS verification when needed. {lang_inst}"
                 ),
             },
-            {"role": "user", "content": json.dumps(prompt, ensure_ascii=True)},
+            {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
         ],
         "temperature": 0.1,
         "max_tokens": 450,
@@ -4404,8 +4835,9 @@ def _groq_chat_answer(
     allowed_codes = {normalize_standard_code(code) for code in retrieved_codes}
     if not answer or not _answer_mentions_only_allowed_codes(answer, allowed_codes):
         return None
-    if "verify with bis" not in answer.lower():
-        answer = f"{answer} {FALLBACK_CHAT_DISCLOSURE}"
+    lower_ans = answer.lower()
+    if "verify with bis" not in lower_ans and "सत्यापित" not in answer and "सत्यापन" not in answer:
+        answer = f"{answer} {VERIFY_WITH_BIS_NOTE_HI if is_hi else FALLBACK_CHAT_DISCLOSURE}"
     return answer[:1800]
 
 
@@ -4418,10 +4850,16 @@ def _chat_answer(
     out_of_scope: bool,
     language: str = "en",
 ) -> tuple[str, bool]:
-    generated = _groq_chat_answer(query, message, history, retrieved_codes, recommendations)
+    # 1. Try Gemini
+    generated = _gemini_chat_answer(query, message, history, retrieved_codes, recommendations, language=language)
     if generated is not None:
         return generated, True
-    return _fallback_chat_answer(message, retrieved_codes, recommendations, out_of_scope, language), False
+    # 2. Try Groq
+    generated = _groq_chat_answer(query, message, history, retrieved_codes, recommendations, language=language)
+    if generated is not None:
+        return generated, True
+    # 3. Deterministic Fallback
+    return _fallback_chat_answer(message, retrieved_codes, recommendations, out_of_scope, language=language), False
 
 
 def _business_guidance(
@@ -4429,18 +4867,60 @@ def _business_guidance(
     retrieved_codes: list[str],
     recommendations: list[dict[str, Any]],
     out_of_scope: bool,
+    language: str = "en",
 ) -> dict[str, Any]:
-    fallback = _fallback_business_guidance(query, retrieved_codes, recommendations, out_of_scope)
-    generated = _groq_business_guidance(query, retrieved_codes, recommendations)
-    if generated is None:
-        return fallback
-    if not generated.get("matched_terms"):
-        generated["matched_terms"] = fallback["matched_terms"]
-    return generated
+    fallback = _fallback_business_guidance(query, retrieved_codes, recommendations, out_of_scope, language=language)
+    # 1. Try Gemini
+    generated = _gemini_business_guidance(query, retrieved_codes, recommendations, language=language)
+    if generated is not None:
+        if not generated.get("matched_terms"):
+            generated["matched_terms"] = fallback["matched_terms"]
+        return generated
+    # 2. Try Groq
+    generated = _groq_business_guidance(query, retrieved_codes, recommendations, language=language)
+    if generated is not None:
+        if not generated.get("matched_terms"):
+            generated["matched_terms"] = fallback["matched_terms"]
+        return generated
+    return fallback
 
 
 def _external_standards(query: str, language: str = "en") -> list[dict[str, str]]:
+    is_hi = language in {"hi", "hinglish"} or (language != "en")
     if is_edible_oil_query(query):
+        if is_hi:
+            return [
+                {
+                    "code": "IS 548 (Part 1/Sec 1):2021",
+                    "title": "Method of Sampling and Test for Oils and Fats - Sampling",
+                    "rationale": "कच्चे या प्रसंस्कृत पशु और वनस्पति तेलों और वसा के नमूने लेने के लिए इस भारतीय मानक का उपयोग करें।",
+                    "source_url": "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=548_1_1",
+                },
+                {
+                    "code": "IS 548 (Part 1/Sec 2):2021",
+                    "title": "Method of Sampling and Test for Oils and Fats - Physical and Chemical Tests",
+                    "rationale": "व्यक्तिगत तेलों, मिश्रित तेलों, फोर्टिफाइड तेलों और वसा के भौतिक और रासायनिक परीक्षणों के लिए इस भारतीय मानक का उपयोग करें।",
+                    "source_url": "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=548_1_2",
+                },
+                {
+                    "code": "IS 548 (Part 2):1976",
+                    "title": "Methods of Sampling and Test for Oils and Fats - Purity Tests",
+                    "rationale": "तेलों और वसा की शुद्धता परीक्षण आवश्यकताओं के लिए इस भारतीय मानक का उपयोग करें।",
+                    "source_url": "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=548_2_1976_Reff2020",
+                },
+                {
+                    "code": "IS 14349:2025",
+                    "title": "Code for Hygienic Conditions for Processing Units of Edible Oils and Fats",
+                    "rationale": "खाद्य तेलों और वसा निर्माण, पैकिंग, भंडारण और परिवहन सुविधाओं में स्वच्छता स्थितियों के लिए इस मानक का उपयोग करें।",
+                    "source_url": "https://www.bis.gov.in/index.php/standard-of-the-month/",
+                },
+                {
+                    "code": "IS 14636:1998",
+                    "title": "Flexible Packaging Materials for Packaging of Edible Oils, Ghee and Vanaspati",
+                    "rationale": "जब खाद्य तेल को लचीली पैकेजिंग सामग्री में पैक किया जाता है, तो इस मानक का उपयोग करें।",
+                    "source_url": "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=14636",
+                },
+            ]
         return [
             {
                 "code": "IS 548 (Part 1/Sec 1):2021",
@@ -4487,7 +4967,7 @@ def _external_standards(query: str, language: str = "en") -> list[dict[str, str]
         ]
     if not is_pencil_query(query):
         return []
-    if language == "hi":
+    if is_hi:
         first_rationale = (
             "यह BIS मानक ड्राइंग पेंसिल, कारपेंटर पेंसिल, स्टेनोग्राफर/रिपोर्टर पेंसिल "
             "और सामान्य लेखन पेंसिल की आवश्यकताओं को कवर करता है।"
@@ -4496,42 +4976,32 @@ def _external_standards(query: str, language: str = "en") -> list[dict[str, str]
             "यह BIS मानक पेंसिल स्लिप यानी pencil lead बनाने में उपयोग होने वाले graphite "
             "grades की आवश्यकताओं को कवर करता है।"
         )
-    elif language == "hinglish":
-        first_rationale = (
-            "Ye BIS standard drawing pencils, carpenter's pencils, stenographer/reporter pencils "
-            "aur general writing pencils ki requirements cover karta hai."
-        )
-        second_rationale = (
-            "Ye BIS standard pencil slips, yaani pencil lead, banane ke liye graphite grades ki "
-            "requirements cover karta hai."
-        )
     else:
         first_rationale = (
-            "This BIS standard covers requirements for drawing pencils, carpenter's pencils, "
-            "stenographer's and reporter's pencils, and pencils for general writing."
+            "Use this Indian Standard for black lead pencils, including drawing, carpenter, "
+            "stenographer, and general writing pencils."
         )
         second_rationale = (
-            "This BIS standard covers graphite grades intended for manufacturing slips for pencils, "
-            "also commonly referred to as pencil lead."
+            "Use this Indian Standard when selecting or testing graphite pencil slips/leads."
         )
     return [
         {
             "code": "IS 1375:2021",
             "title": "Black Lead Pencils - Specification",
             "rationale": first_rationale,
-            "source_url": "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=1375_2021",
+            "source_url": "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=1375",
         },
         {
             "code": "IS 2079:2022",
             "title": "Graphite for Pencil Slips - Specification",
             "rationale": second_rationale,
-            "source_url": "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=2079_2022",
+            "source_url": "https://standardsbis.bsbedge.com/BIS_Preview.aspx?id=2079",
         },
     ]
 
 
-@app.get("/", response_class=HTMLResponse)
-def root() -> HTMLResponse:
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def index() -> HTMLResponse:
     return HTMLResponse(INDEX_HTML)
 
 
@@ -4539,7 +5009,7 @@ def _status_payload() -> dict[str, Any]:
     missing = _missing_artifacts()
     return {
         "service": "BIS Standards Recommendation Engine",
-        "status": "ready" if not missing else "missing_artifacts",
+        "status": "ready" if not missing else "degraded",
         "endpoints": {
             "health": "/health",
             "recommend": "/recommend",
@@ -4729,7 +5199,11 @@ def status(request: Request) -> Any:
 
 @app.get("/favicon.svg", include_in_schema=False)
 def favicon_svg() -> Response:
-    return Response(content=FAVICON_SVG, media_type="image/svg+xml")
+    return Response(
+        content=FAVICON_SVG,
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -4765,12 +5239,13 @@ def recommend(payload: RecommendationRequest) -> dict[str, Any]:
 
     recommendations = _recommendation_items(result["retrieved_standards"], payload.language)
     external_standards = _external_standards(query, payload.language)
-    bis_services = _bis_service_guidance(query, bool(result.get("out_of_scope")))
+    bis_services = _bis_service_guidance(query, bool(result.get("out_of_scope")), language=payload.language)
     compliance_roadmap = _build_compliance_roadmap(
       query=query,
       retrieved_codes=result["retrieved_standards"],
       out_of_scope=bool(result.get("out_of_scope")),
       bis_services=bis_services,
+      language=payload.language,
     )
     return {
         **result,
@@ -4781,6 +5256,7 @@ def recommend(payload: RecommendationRequest) -> dict[str, Any]:
             retrieved_codes=result["retrieved_standards"],
             recommendations=recommendations,
             out_of_scope=bool(result.get("out_of_scope")),
+            language=payload.language,
         ),
         "bis_services": bis_services,
         "compliance_roadmap": compliance_roadmap,
@@ -4790,6 +5266,7 @@ def recommend(payload: RecommendationRequest) -> dict[str, Any]:
             recommendations=recommendations,
             bis_services=bis_services,
             roadmap=compliance_roadmap,
+            language=payload.language,
         ),
         "external_standards": external_standards,
     }
@@ -4832,7 +5309,6 @@ def chat(payload: ChatRequest) -> dict[str, Any]:
         "compliance_warnings": processed.compliance_warnings,
         "ai_generated": ai_generated,
     }
-
 
 @app.post("/api/chat", response_model=ChatResponse, include_in_schema=False)
 def chat_api(payload: ChatRequest) -> dict[str, Any]:

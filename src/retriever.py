@@ -7,6 +7,7 @@ import pickle
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -94,6 +95,57 @@ def normalize_standard_code(code: str) -> str:
     return normalize_is_code(code)
 
 
+def _prepare_metadata_item(standard: dict[str, Any]) -> dict[str, Any]:
+    """Precompute fields used by deterministic metadata boosts."""
+    if META_DOCUMENT_TEXT_KEY in standard:
+        return standard
+
+    title = str(standard.get("title") or "")
+    title_tokens = frozenset(tokenize(title))
+    keyword_tokens: set[str] = set()
+    for keyword in standard.get("keywords") or []:
+        keyword_tokens.update(tokenize(str(keyword)))
+
+    standard[META_DOCUMENT_TEXT_KEY] = " ".join(
+        str(standard.get(field_name) or "")
+        for field_name in ("is_code", "title", "scope", "chunk_text")
+    ).lower()
+    standard[META_KEYWORD_TOKENS_KEY] = frozenset(keyword_tokens)
+    standard[META_NORMALIZED_CODE_KEY] = normalize_is_code(
+        standard.get("is_code_normalized") or standard.get("is_code") or ""
+    )
+    standard[META_TITLE_TEXT_KEY] = " ".join(title_tokens)
+    standard[META_TITLE_TOKENS_KEY] = title_tokens
+    return standard
+
+
+@lru_cache(maxsize=4)
+def _cached_load_standards(standards_path_str: str) -> list[dict[str, Any]]:
+    with open(standards_path_str, "r", encoding="utf-8") as file:
+        standards = json.load(file)
+    if not isinstance(standards, list):
+        raise ValueError(f"Standards index must be a JSON list: {standards_path_str}")
+    for standard in standards:
+        _prepare_metadata_item(standard)
+    return standards
+
+
+@lru_cache(maxsize=4)
+def _cached_load_bm25(bm25_path_str: str) -> Any:
+    with open(bm25_path_str, "rb") as file:
+        payload = pickle.load(file)
+    if isinstance(payload, dict) and "bm25" in payload:
+        return payload["bm25"]
+    return payload
+
+
+@lru_cache(maxsize=4)
+def _cached_load_code_lookup(lookup_path_str: str) -> dict[str, int]:
+    with open(lookup_path_str, "r", encoding="utf-8") as file:
+        payload = json.load(file)
+    return {normalize_is_code(code): int(index) for code, index in payload.items()}
+
+
 class HybridRetriever:
     """Retrieve standards with FAISS, BM25, RRF fusion, and metadata boosts."""
 
@@ -160,38 +212,11 @@ class HybridRetriever:
         standards_path = data_dir / "standards_indexed.json"
         if not standards_path.exists():
             raise FileNotFoundError(self._missing_artifacts_message([standards_path]))
-
-        with standards_path.open(encoding="utf-8") as file:
-            standards = json.load(file)
-        if not isinstance(standards, list):
-            raise ValueError(f"Standards index must be a JSON list: {standards_path}")
-        for standard in standards:
-            self._prepare_standard_metadata(standard)
-        return standards
+        return _cached_load_standards(str(standards_path.resolve()))
 
     @staticmethod
     def _prepare_standard_metadata(standard: dict[str, Any]) -> dict[str, Any]:
-        """Precompute fields used by deterministic metadata boosts."""
-        if META_DOCUMENT_TEXT_KEY in standard:
-            return standard
-
-        title = str(standard.get("title") or "")
-        title_tokens = frozenset(tokenize(title))
-        keyword_tokens: set[str] = set()
-        for keyword in standard.get("keywords") or []:
-            keyword_tokens.update(tokenize(str(keyword)))
-
-        standard[META_DOCUMENT_TEXT_KEY] = " ".join(
-            str(standard.get(field_name) or "")
-            for field_name in ("is_code", "title", "scope", "chunk_text")
-        ).lower()
-        standard[META_KEYWORD_TOKENS_KEY] = frozenset(keyword_tokens)
-        standard[META_NORMALIZED_CODE_KEY] = normalize_is_code(
-            standard.get("is_code_normalized") or standard.get("is_code") or ""
-        )
-        standard[META_TITLE_TEXT_KEY] = " ".join(title_tokens)
-        standard[META_TITLE_TOKENS_KEY] = title_tokens
-        return standard
+        return _prepare_metadata_item(standard)
 
     def _load_faiss_index(self, path: Path):
         if not path.exists():
@@ -207,20 +232,12 @@ class HybridRetriever:
     def _load_bm25(self, path: Path):
         if not path.exists():
             raise FileNotFoundError(self._missing_artifacts_message([path]))
-
-        with path.open("rb") as file:
-            payload = pickle.load(file)
-        if isinstance(payload, dict) and "bm25" in payload:
-            return payload["bm25"]
-        return payload
+        return _cached_load_bm25(str(path.resolve()))
 
     def _load_code_lookup(self, path: Path) -> dict[str, int]:
         if not path.exists():
             raise FileNotFoundError(self._missing_artifacts_message([path]))
-
-        with path.open(encoding="utf-8") as file:
-            payload = json.load(file)
-        return {normalize_is_code(code): int(index) for code, index in payload.items()}
+        return _cached_load_code_lookup(str(path.resolve()))
 
     def _dense_search(self, query: str, top_k: int = DENSE_TOP_K) -> list[int]:
         """Return standard indices ranked by dense semantic similarity."""
