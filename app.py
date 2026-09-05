@@ -1,4 +1,4 @@
-"""Vercel-compatible FastAPI entrypoint for the BIS recommendation engine."""
+"""Vercel-compatible FastAPI entrypoint for the BIS Saarthi assistant."""
 
 from __future__ import annotations
 
@@ -31,9 +31,12 @@ ARTIFACT_PATHS = (
 )
 
 app = FastAPI(
-    title="BIS Standards Recommendation Engine",
+    title="BIS Saarthi - Indian Standards and BIS Services Assistant",
     version="1.0.0",
-    description="Recommend Bureau of Indian Standards IS codes from product and manufacturing queries.",
+    description=(
+        "AI-assisted discovery of Indian Standards and BIS service routes for "
+        "industries, MSMEs, students, and consumers."
+    ),
 )
 
 
@@ -71,6 +74,50 @@ class ExternalStandard(BaseModel):
     source_url: str
 
 
+class BISServiceLink(BaseModel):
+    label: str
+    url: str
+
+
+class BISServiceGuidance(BaseModel):
+    audience: str
+    relevant_services: list[str]
+    next_steps: list[str]
+    official_links: list[BISServiceLink]
+    verification_note: str
+
+
+class ComplianceRoadmapStep(BaseModel):
+    step_no: int
+    title: str
+    action: str
+    official_link: str
+
+
+class ComplianceRoadmap(BaseModel):
+  audience: str
+  applicable_schemes: list[str]
+  suggested_labs: list[str]
+  process_summary: list[str]
+  steps: list[ComplianceRoadmapStep]
+  verification_note: str
+
+
+class ComplianceReport(BaseModel):
+  product_description: str
+  classification: str
+  applicable_indian_standards: list[str]
+  mandatory_or_voluntary: str
+  certification_required: str
+  applicable_bis_scheme: str
+  relevant_clauses: list[str]
+  required_tests: list[str]
+  suggested_labs: list[str]
+  estimated_compliance_workflow: list[str]
+  source_links: list[str]
+  verification_note: str
+
+
 class BusinessGuidance(BaseModel):
     matched_category: str
     matched_terms: list[str]
@@ -89,6 +136,9 @@ class RecommendationResponse(BaseModel):
     compliance_warnings: list[str]
     recommendations: list[RecommendationItem]
     business_guidance: BusinessGuidance
+    bis_services: BISServiceGuidance
+    compliance_roadmap: ComplianceRoadmap
+    compliance_report: ComplianceReport
     out_of_scope: bool = False
     external_standards: list[ExternalStandard] = Field(default_factory=list)
 
@@ -796,6 +846,88 @@ INDEX_HTML = """
       text-transform: uppercase;
     }
 
+    .roadmap-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      padding: 0 20px 16px;
+    }
+
+    .secondary {
+      border: 1px solid var(--gov-blue);
+      background: #eef6ff;
+      color: var(--gov-navy);
+      border-radius: 6px;
+      padding: 9px 12px;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 0.84rem;
+    }
+
+    .secondary:hover {
+      background: var(--gov-blue-2);
+    }
+
+    .roadmap-panel {
+      margin: 0 20px 18px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfdff;
+      padding: 12px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .roadmap-panel.hidden {
+      display: none;
+    }
+
+    .roadmap-panel h3 {
+      margin: 0;
+      color: var(--gov-navy);
+      font-size: 0.95rem;
+    }
+
+    .roadmap-panel p,
+    .roadmap-panel ul,
+    .roadmap-panel ol {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .roadmap-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .roadmap-card {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--white);
+      padding: 10px;
+    }
+
+    .roadmap-steps {
+      margin: 0;
+      padding-left: 20px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .roadmap-step-link {
+      color: var(--gov-blue);
+      text-decoration: none;
+      overflow-wrap: anywhere;
+      font-weight: 700;
+    }
+
+    .roadmap-step-link:hover {
+      text-decoration: underline;
+    }
+
     .saarthi-widget {
       position: fixed;
       right: 22px;
@@ -1288,6 +1420,18 @@ INDEX_HTML = """
       color: #ffd45a;
     }
 
+    body.contrast .secondary,
+    body.contrast .roadmap-card,
+    body.contrast .roadmap-panel {
+      background: #1a1a1a;
+      border-color: #8a8a8a;
+      color: #ffffff;
+    }
+
+    body.contrast .roadmap-step-link {
+      color: #ffd45a;
+    }
+
     body.contrast footer,
     body.contrast .footer-note {
       background: #000000;
@@ -1339,6 +1483,10 @@ INDEX_HTML = """
       }
 
       .metrics {
+        grid-template-columns: 1fr;
+      }
+
+      .roadmap-grid {
         grid-template-columns: 1fr;
       }
 
@@ -1460,6 +1608,11 @@ INDEX_HTML = """
           <div id="guidanceBody" class="guidance assistant-empty">
             <p data-assistant-i18n="empty">Run a standards search to view matched category, key terms, document readiness, testing readiness, and verification notes.</p>
           </div>
+          <div class="roadmap-actions">
+            <button id="roadmapButton" class="secondary" type="button" data-assistant-i18n="roadmapButton">Show compliance roadmap</button>
+            <button id="reportButton" class="secondary" type="button" data-assistant-i18n="reportButton">Download report</button>
+          </div>
+          <div id="roadmapPanel" class="roadmap-panel hidden" aria-live="polite"></div>
         </section>
         <section class="panel notice">
           <h2 data-i18n="scopeTitle">Catalogue scope</h2>
@@ -2596,7 +2749,21 @@ INDEX_HTML = """
         chatSending: "Thinking...",
         chatNote: "Udyam Saarthi only uses standards returned by this retriever and asks you to verify with BIS.",
         chatNeedQuery: "Enter a product description first.",
-        chatError: "Chatbot response failed."
+        chatError: "Chatbot response failed.",
+        audienceTitle: "Primary audience",
+        servicesTitle: "Relevant BIS services",
+        serviceStepsTitle: "Service-aligned next steps",
+        officialLinksTitle: "Official BIS service links",
+        roadmapButton: "Show compliance roadmap",
+        roadmapButtonHide: "Hide compliance roadmap",
+        roadmapTitle: "Step-by-step compliance roadmap",
+        roadmapNoData: "Run a standards search first to generate a roadmap.",
+        roadmapSchemesTitle: "Relevant BIS schemes",
+        roadmapLabsTitle: "Labs and test facilities",
+        roadmapProcessTitle: "Process checkpoints",
+        roadmapStepsTitle: "Action plan",
+        reportButton: "Download report",
+        reportNoData: "Run a standards search first to generate a report."
       },
       hi: {
         title: "व्यावसायिक अनुपालन सहायक",
@@ -2621,7 +2788,21 @@ INDEX_HTML = """
         chatSending: "सोच रहा है...",
         chatNote: "उद्यम सारथी केवल इसी retriever से लौटे मानकों का उपयोग करता है और BIS से सत्यापन कहता है।",
         chatNeedQuery: "पहले उत्पाद विवरण दर्ज करें।",
-        chatError: "चैटबॉट उत्तर नहीं दे सका।"
+        chatError: "चैटबॉट उत्तर नहीं दे सका।",
+        audienceTitle: "मुख्य उपयोगकर्ता समूह",
+        servicesTitle: "संबंधित BIS सेवाएं",
+        serviceStepsTitle: "सेवा-अनुसार अगले कदम",
+        officialLinksTitle: "आधिकारिक BIS लिंक",
+        roadmapButton: "अनुपालन रोडमैप दिखाएँ",
+        roadmapButtonHide: "अनुपालन रोडमैप छुपाएँ",
+        roadmapTitle: "चरण-दर-चरण अनुपालन रोडमैप",
+        roadmapNoData: "पहले मानक खोज चलाएँ, फिर रोडमैप मिलेगा।",
+        roadmapSchemesTitle: "संबंधित BIS स्कीम",
+        roadmapLabsTitle: "लैब और परीक्षण सुविधाएं",
+        roadmapProcessTitle: "प्रक्रिया जांच बिंदु",
+        roadmapStepsTitle: "कार्य योजना",
+        reportButton: "रिपोर्ट डाउनलोड करें",
+        reportNoData: "पहले मानक खोज चलाएँ, फिर रिपोर्ट डाउनलोड करें।"
       },
       hinglish: {
         title: "Business Compliance Assistant",
@@ -2646,7 +2827,21 @@ INDEX_HTML = """
         chatSending: "Soch raha hai...",
         chatNote: "Udyam Saarthi sirf retriever ke returned standards use karta hai aur BIS verification bolta hai.",
         chatNeedQuery: "Pehle product description enter karein.",
-        chatError: "Chatbot response fail ho gaya."
+        chatError: "Chatbot response fail ho gaya.",
+        audienceTitle: "Primary audience",
+        servicesTitle: "Relevant BIS services",
+        serviceStepsTitle: "Service wise next steps",
+        officialLinksTitle: "Official BIS links",
+        roadmapButton: "Compliance roadmap dikhayein",
+        roadmapButtonHide: "Compliance roadmap chhupayein",
+        roadmapTitle: "Step-by-step compliance roadmap",
+        roadmapNoData: "Pehle standards search chalayein, phir roadmap generate hoga.",
+        roadmapSchemesTitle: "Relevant BIS schemes",
+        roadmapLabsTitle: "Labs aur test facilities",
+        roadmapProcessTitle: "Process checkpoints",
+        roadmapStepsTitle: "Action plan",
+        reportButton: "Report download karein",
+        reportNoData: "Pehle standards search chalayein, phir report download karein."
       }
     };
 
@@ -2665,6 +2860,9 @@ INDEX_HTML = """
     const chatForm = document.querySelector("#chatForm");
     const chatInput = document.querySelector("#chatInput");
     const chatSubmit = document.querySelector("#chatSubmit");
+    const roadmapButton = document.querySelector("#roadmapButton");
+    const reportButton = document.querySelector("#reportButton");
+    const roadmapPanel = document.querySelector("#roadmapPanel");
     const saarthiWidget = document.querySelector("#saarthiWidget");
     const saarthiToggle = document.querySelector("#saarthiToggle");
     const saarthiClose = document.querySelector("#saarthiClose");
@@ -2672,6 +2870,7 @@ INDEX_HTML = """
     let currentLang = "en";
     let latestResultData = null;
     let chatHistory = [];
+    let roadmapVisible = false;
 
     function escapeHtml(value) {
       return String(value)
@@ -2735,8 +2934,11 @@ INDEX_HTML = """
         renderResults(latestResultData);
       } else {
         renderGuidance(null);
+        renderRoadmap(null);
         renderChatLog();
       }
+      roadmapButton.textContent = roadmapVisible ? a("roadmapButtonHide") : a("roadmapButton");
+      reportButton.textContent = a("reportButton");
     }
 
     function setLoading(isLoading) {
@@ -2803,9 +3005,96 @@ INDEX_HTML = """
           <h3>${escapeHtml(a("workflowTitle"))}</h3>
           ${listItems(guidance.bis_workflow)}
         </div>
+        ${renderServiceGuidance((latestResultData && latestResultData.bis_services) || null)}
         <div class="guidance-card">
           <h3>${escapeHtml(a("notesTitle"))}</h3>
           ${listItems(guidance.verification_notes)}
+        </div>
+      `;
+    }
+
+    function roadmapList(items) {
+      const safeItems = (items || []).filter(Boolean);
+      if (!safeItems.length) return `<p>${escapeHtml(a("fallback"))}</p>`;
+      return `<ul>${safeItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+    }
+
+    function renderRoadmap(data) {
+      const roadmap = data && data.compliance_roadmap;
+      if (!roadmap) {
+        roadmapPanel.classList.add("hidden");
+        roadmapPanel.innerHTML = `<p>${escapeHtml(a("roadmapNoData"))}</p>`;
+        roadmapVisible = false;
+        roadmapButton.textContent = a("roadmapButton");
+        return;
+      }
+
+      const steps = (roadmap.steps || []).filter((step) => step && step.title);
+      roadmapPanel.innerHTML = `
+        <h3>${escapeHtml(a("roadmapTitle"))}</h3>
+        <p>${escapeHtml(roadmap.audience || "industry_or_consumer")}</p>
+        <div class="roadmap-grid">
+          <div class="roadmap-card">
+            <h3>${escapeHtml(a("roadmapSchemesTitle"))}</h3>
+            ${roadmapList(roadmap.applicable_schemes)}
+          </div>
+          <div class="roadmap-card">
+            <h3>${escapeHtml(a("roadmapLabsTitle"))}</h3>
+            ${roadmapList(roadmap.suggested_labs)}
+          </div>
+        </div>
+        <div class="roadmap-card">
+          <h3>${escapeHtml(a("roadmapProcessTitle"))}</h3>
+          ${roadmapList(roadmap.process_summary)}
+        </div>
+        <div class="roadmap-card">
+          <h3>${escapeHtml(a("roadmapStepsTitle"))}</h3>
+          <ol class="roadmap-steps">${steps.map((step) => `
+            <li>
+              <strong>${escapeHtml(`Step ${step.step_no}: ${step.title}`)}</strong><br />
+              ${escapeHtml(step.action)}<br />
+              <a class="roadmap-step-link" href="${escapeHtml(step.official_link)}" target="_blank" rel="noopener">${escapeHtml(step.official_link)}</a>
+            </li>
+          `).join("")}</ol>
+        </div>
+        <p><strong>${escapeHtml(roadmap.verification_note || a("fallback"))}</strong></p>
+      `;
+
+      if (roadmapVisible) {
+        roadmapPanel.classList.remove("hidden");
+        roadmapButton.textContent = a("roadmapButtonHide");
+      } else {
+        roadmapPanel.classList.add("hidden");
+        roadmapButton.textContent = a("roadmapButton");
+      }
+    }
+
+    function serviceLinks(links) {
+      const safeLinks = (links || []).filter((link) => link && link.url);
+      if (!safeLinks.length) return `<p>${escapeHtml(a("fallback"))}</p>`;
+      return `<ul>${safeLinks.map((link) => `
+        <li><a href="${escapeHtml(link.url)}" target="_blank" rel="noopener">${escapeHtml(link.label || link.url)}</a></li>
+      `).join("")}</ul>`;
+    }
+
+    function renderServiceGuidance(service) {
+      if (!service) return "";
+      return `
+        <div class="guidance-card">
+          <h3>${escapeHtml(a("audienceTitle"))}</h3>
+          <p>${escapeHtml(service.audience || "industry_or_consumer")}</p>
+        </div>
+        <div class="guidance-card">
+          <h3>${escapeHtml(a("servicesTitle"))}</h3>
+          ${listItems(service.relevant_services)}
+        </div>
+        <div class="guidance-card">
+          <h3>${escapeHtml(a("serviceStepsTitle"))}</h3>
+          ${listItems(service.next_steps)}
+        </div>
+        <div class="guidance-card">
+          <h3>${escapeHtml(a("officialLinksTitle"))}</h3>
+          ${serviceLinks(service.official_links)}
         </div>
       `;
     }
@@ -2864,6 +3153,74 @@ INDEX_HTML = """
       renderChatLog();
     }
 
+    function buildComplianceReportMarkdown(data) {
+      const report = (data && data.compliance_report) || null;
+      if (!report) return "";
+      const lines = [];
+      lines.push("# BIS Compliance Intelligence Report");
+      lines.push("");
+      lines.push(`Generated at: ${new Date().toISOString()}`);
+      lines.push("");
+      lines.push("## Product");
+      lines.push(report.product_description || "Not provided");
+      lines.push("");
+      lines.push("## Classification");
+      lines.push(report.classification || "Not classified");
+      lines.push("");
+      lines.push("## Applicable Indian Standards");
+      (report.applicable_indian_standards || []).forEach((item) => lines.push(`- ${item}`));
+      lines.push("");
+      lines.push("## Applicability");
+      lines.push(`- Mandatory or voluntary: ${report.mandatory_or_voluntary || "Verify with BIS"}`);
+      lines.push(`- Certification required: ${report.certification_required || "Verify with BIS"}`);
+      lines.push(`- Applicable BIS scheme: ${report.applicable_bis_scheme || "Verify with BIS"}`);
+      lines.push("");
+      lines.push("## Relevant Clauses");
+      (report.relevant_clauses || []).forEach((item) => lines.push(`- ${item}`));
+      lines.push("");
+      lines.push("## Required Tests");
+      (report.required_tests || []).forEach((item) => lines.push(`- ${item}`));
+      lines.push("");
+      lines.push("## Suggested Labs");
+      (report.suggested_labs || []).forEach((item) => lines.push(`- ${item}`));
+      lines.push("");
+      lines.push("## Estimated Compliance Workflow");
+      (report.estimated_compliance_workflow || []).forEach((item) => lines.push(`- ${item}`));
+      lines.push("");
+      lines.push("## Sources");
+      (report.source_links || []).forEach((item) => lines.push(`- ${item}`));
+      lines.push("");
+      lines.push("## Verification Note");
+      lines.push(report.verification_note || a("fallback"));
+      return lines.join("\n");
+    }
+
+    function downloadComplianceReport() {
+      if (!latestResultData || !latestResultData.compliance_report) {
+        alert(a("reportNoData"));
+        return;
+      }
+      const content = buildComplianceReportMarkdown(latestResultData);
+      if (!content) {
+        alert(a("reportNoData"));
+        return;
+      }
+      const safeName = (latestResultData.query || "bis-compliance-report")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 56) || "bis-compliance-report";
+      const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${safeName}.md`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
     function openSaarthi() {
       saarthiWidget.classList.add("open");
       setTimeout(() => chatInput.focus(), 0);
@@ -2878,6 +3235,7 @@ INDEX_HTML = """
       latency.textContent = `${Number(data.latency_seconds || 0).toFixed(3)}s`;
       renderWarnings(data.compliance_warnings);
       renderGuidance(data.business_guidance);
+      renderRoadmap(data);
       const recommendations = data.recommendations || [];
       const external = data.external_standards || [];
       if (!recommendations.length && external.length) {
@@ -2999,6 +3357,23 @@ INDEX_HTML = """
 
     saarthiToggle.addEventListener("click", openSaarthi);
     saarthiClose.addEventListener("click", closeSaarthi);
+
+    roadmapButton.addEventListener("click", () => {
+      if (!latestResultData || !latestResultData.compliance_roadmap) {
+        roadmapVisible = false;
+        roadmapPanel.classList.remove("hidden");
+        roadmapPanel.innerHTML = `<p>${escapeHtml(a("roadmapNoData"))}</p>`;
+        roadmapButton.textContent = a("roadmapButton");
+        return;
+      }
+      roadmapVisible = !roadmapVisible;
+      renderRoadmap(latestResultData);
+      if (roadmapVisible) {
+        roadmapPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    });
+
+    reportButton.addEventListener("click", downloadComplianceReport);
 
     document.querySelectorAll("[data-sample]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -3166,6 +3541,425 @@ BIS_PRODUCT_CERTIFICATION_URL = (
 BIS_STANDARD_LOOKUP_URL = "https://www.manakonline.in/MANAK/ApplicationLicenceRelatedrpt"
 MANAK_ONLINE_URL = "https://www.manakonline.in/MANAK/impLinks"
 BIS_FAQ_URL = "https://www.bis.gov.in/product-certification/product-certification-faq/?lang=en"
+BIS_HOME_URL = "https://www.bis.gov.in/?lang=en"
+BIS_STANDARDS_DOWNLOAD_URL = "https://standardsbis.bsbedge.com/"
+BIS_LAB_TEST_FACILITIES_URL = "https://lims.bis.gov.in/"
+BIS_HALLMARKING_URL = "https://www.bis.gov.in/hallmarking-overview/?lang=en"
+BIS_CONSUMER_OVERVIEW_URL = "https://www.bis.gov.in/consumer-overview/?lang=en"
+BIS_CONSUMER_COMPLAINT_URL = (
+    "https://www.bis.gov.in/consumer-overview/online-complaint-registration/?lang=en"
+)
+INDUSTRY_SERVICE_TERMS = (
+    "manufactur",
+    "factory",
+    "industry",
+    "msme",
+    "mse",
+    "startup",
+    "license",
+    "licence",
+    "certification",
+    "apply",
+    "qco",
+    "testing",
+    "lab",
+)
+CONSUMER_SERVICE_TERMS = (
+    "consumer",
+    "customer",
+    "buyer",
+    "complaint",
+    "fake",
+    "misuse",
+    "hallmark",
+    "huid",
+    "jewellery",
+    "jewelry",
+    "gold",
+    "silver",
+)
+HALLMARKING_TERMS = (
+    "hallmark",
+    "huid",
+    "jewellery",
+    "jewelry",
+    "gold",
+    "silver",
+    "ornament",
+    "assay",
+)
+ELECTRICAL_TERMS = (
+    "electrical",
+    "electric",
+    "wire",
+    "cable",
+    "plug",
+    "switch",
+    "appliance",
+)
+FOOD_CONTACT_TERMS = (
+    "food",
+    "edible",
+    "utensil",
+    "container",
+    "bottle",
+    "packaging",
+)
+CLAUSE_PATTERN = re.compile(
+    r"\b(?:clause|section)\s+(\d+(?:\.\d+)*)",
+    re.IGNORECASE,
+)
+
+
+def _classify_product_family(query: str) -> str:
+    lower = str(query or "").lower()
+    if any(term in lower for term in HALLMARKING_TERMS):
+        return "Precious metal article (hallmarking context)"
+    if any(term in lower for term in ELECTRICAL_TERMS):
+        return "Electrical/electronic product"
+    if any(term in lower for term in FOOD_CONTACT_TERMS):
+        return "Food or food-contact product"
+    if any(term in lower for term in ("cement", "aggregate", "concrete", "steel", "pipe", "block")):
+        return "Building material or construction product"
+    return "General manufactured product"
+
+
+def _mandatory_status(query: str, has_codes: bool) -> str:
+    lower = str(query or "").lower()
+    if any(term in lower for term in HALLMARKING_TERMS):
+        return "Likely mandatory for covered precious metal categories; verify latest BIS hallmarking notifications."
+    if has_codes:
+        return "May be mandatory if covered by a QCO or procurement requirement; otherwise potentially voluntary. Verify current BIS/QCO notifications."
+    return "Cannot determine from current catalogue match; verify with BIS and the latest QCO notifications."
+
+
+def _certification_requirement(query: str, has_codes: bool) -> str:
+    lower = str(query or "").lower()
+    if any(term in lower for term in HALLMARKING_TERMS):
+        return "Yes for covered hallmarking categories, subject to current BIS rules."
+    if has_codes:
+        return "Likely required for regulated categories; verify applicability on Manak Online and BIS scheme documents."
+    return "Undetermined until applicable IS code and scheme are confirmed with BIS."
+
+
+def _applicable_scheme(query: str, audience: str) -> str:
+    lower = str(query or "").lower()
+    if any(term in lower for term in HALLMARKING_TERMS):
+        return "Hallmarking Scheme with HUID verification"
+    if audience in {"consumer", "industry_and_consumer"} and any(
+        term in lower for term in ("complaint", "consumer", "misuse", "fake")
+    ):
+        return "Consumer engagement and complaint handling channel"
+    return "Product Certification Scheme (ISI Mark)"
+
+
+def _extract_relevant_clauses(codes: list[str], limit: int = 6) -> list[str]:
+    lookup = _standard_lookup()
+    clauses: list[str] = []
+    seen: set[str] = set()
+    for code in codes:
+        standard = lookup.get(normalize_standard_code(code), {})
+        text = " ".join(
+            str(standard.get(field) or "")
+            for field in ("scope", "body", "chunk_text")
+        )
+        for match in CLAUSE_PATTERN.findall(text):
+            clause_ref = f"{code} Clause {match}"
+            if clause_ref not in seen:
+                clauses.append(clause_ref)
+                seen.add(clause_ref)
+                if len(clauses) >= limit:
+                    return clauses
+    if clauses:
+        return clauses
+    return [
+        "Clause-level references are not explicitly structured in the bundled catalogue text. Open the official standard document for the returned IS code and map applicable clauses before filing."
+    ]
+
+
+def _required_tests_for_query(query: str, codes: list[str]) -> list[str]:
+    lower = str(query or "").lower()
+    tests = [
+        "Identify product-specific test methods and acceptance criteria from the official IS text.",
+        "Prepare representative samples with lot traceability and test records.",
+        "Verify test conditions, apparatus, and reporting format with BIS-recognized lab requirements.",
+    ]
+    if any(term in lower for term in ELECTRICAL_TERMS):
+        tests.append("Include electrical safety and performance test parameters where applicable.")
+    if any(term in lower for term in FOOD_CONTACT_TERMS):
+        tests.append("Include hygiene, migration, or food-contact safety parameters where applicable.")
+    if any(term in lower for term in ("cement", "concrete", "aggregate", "steel")):
+        tests.append("Include mechanical/physical property tests aligned to grade and usage class.")
+    if not codes:
+        tests.append("Finalize test plan only after BIS confirms the correct product family and applicable IS code.")
+    return tests[:5]
+
+
+def _build_compliance_report(
+    query: str,
+    retrieved_codes: list[str],
+    recommendations: list[dict[str, Any]],
+    bis_services: dict[str, Any],
+    roadmap: dict[str, Any],
+ ) -> dict[str, Any]:
+    audience = str(bis_services.get("audience") or _query_audience(query))
+    has_codes = bool(retrieved_codes)
+    source_links = [
+        str(item.get("source_url") or "")
+        for item in recommendations
+        if str(item.get("source_url") or "")
+    ]
+    source_links.extend(
+        str(link.get("url") or "")
+        for link in bis_services.get("official_links") or []
+        if str(link.get("url") or "")
+    )
+    unique_links: list[str] = []
+    seen_links: set[str] = set()
+    for link in source_links:
+        if link and link not in seen_links:
+            unique_links.append(link)
+            seen_links.add(link)
+
+    return {
+        "product_description": query,
+        "classification": _classify_product_family(query),
+        "applicable_indian_standards": retrieved_codes,
+        "mandatory_or_voluntary": _mandatory_status(query, has_codes),
+        "certification_required": _certification_requirement(query, has_codes),
+        "applicable_bis_scheme": _applicable_scheme(query, audience),
+        "relevant_clauses": _extract_relevant_clauses(retrieved_codes),
+        "required_tests": _required_tests_for_query(query, retrieved_codes),
+        "suggested_labs": list(roadmap.get("suggested_labs") or []),
+        "estimated_compliance_workflow": [
+            str(step.get("title") or "")
+            for step in roadmap.get("steps") or []
+            if str(step.get("title") or "")
+        ],
+        "source_links": unique_links,
+        "verification_note": VERIFY_WITH_BIS_NOTE,
+    }
+
+
+def _query_audience(query: str) -> str:
+    lower = str(query or "").lower()
+    industry = any(term in lower for term in INDUSTRY_SERVICE_TERMS)
+    consumer = any(term in lower for term in CONSUMER_SERVICE_TERMS)
+    if industry and consumer:
+        return "industry_and_consumer"
+    if consumer:
+        return "consumer"
+    if industry:
+        return "industry"
+    return "industry_or_consumer"
+
+
+def _append_service_link(
+    links: list[dict[str, str]],
+    seen_urls: set[str],
+    label: str,
+    url: str,
+) -> None:
+    if url in seen_urls:
+        return
+    links.append({"label": label, "url": url})
+    seen_urls.add(url)
+
+
+def _bis_service_guidance(query: str, out_of_scope: bool) -> dict[str, Any]:
+    lower = str(query or "").lower()
+    audience = _query_audience(query)
+    includes_hallmarking = any(term in lower for term in HALLMARKING_TERMS)
+    services = ["Indian Standards search and preview"]
+    next_steps: list[str] = []
+    links: list[dict[str, str]] = []
+    seen_urls: set[str] = set()
+
+    _append_service_link(links, seen_urls, "BIS official website", BIS_HOME_URL)
+    _append_service_link(links, seen_urls, "Download or preview Indian Standards", BIS_STANDARDS_DOWNLOAD_URL)
+    _append_service_link(links, seen_urls, "Manak Online services", MANAK_ONLINE_URL)
+
+    if out_of_scope:
+        next_steps.append(
+            "The bundled retrieval catalogue did not return an in-scope IS code; verify the product "
+            "category through BIS search, Manak Online, or the relevant BIS office before acting."
+        )
+    else:
+        next_steps.append(
+            "Open the returned standard records and confirm product grade, material, intended use, "
+            "and current amendment status before certification or procurement decisions."
+        )
+
+    if audience in {"industry", "industry_and_consumer", "industry_or_consumer"}:
+        services.extend(
+            [
+                "Product Certification and ISI mark route",
+                "Testing facilities and BIS recognised laboratories",
+                "Application and licence actions through Manak Online",
+            ]
+        )
+        next_steps.extend(
+            [
+                "Map each product variant to the returned or officially verified IS code.",
+                "Review the BIS product certification route and prepare factory, quality-control, "
+                "raw-material, and test evidence before applying.",
+                "Identify a competent test facility for the applicable IS code before submission.",
+            ]
+        )
+        _append_service_link(
+            links,
+            seen_urls,
+            "BIS product certification overview",
+            BIS_PRODUCT_CERTIFICATION_URL,
+        )
+        _append_service_link(links, seen_urls, "BIS lab test facilities", BIS_LAB_TEST_FACILITIES_URL)
+
+    if includes_hallmarking:
+        services.append("Hallmarking and HUID guidance")
+        next_steps.append(
+            "For precious metal articles, use BIS hallmarking guidance and HUID verification routes "
+            "instead of treating a generic product standard as sufficient."
+        )
+        _append_service_link(links, seen_urls, "BIS hallmarking overview", BIS_HALLMARKING_URL)
+
+    if audience in {"consumer", "industry_and_consumer"}:
+        services.append("Consumer engagement and complaint guidance")
+        next_steps.append(
+            "For consumer complaints, suspected misuse of the BIS Standard Mark, or hallmark concerns, "
+            "use BIS consumer engagement and complaint channels."
+        )
+        _append_service_link(links, seen_urls, "BIS consumer overview", BIS_CONSUMER_OVERVIEW_URL)
+        _append_service_link(
+            links,
+            seen_urls,
+            "BIS online complaint registration",
+            BIS_CONSUMER_COMPLAINT_URL,
+        )
+
+    return {
+        "audience": audience,
+        "relevant_services": services,
+        "next_steps": next_steps,
+        "official_links": links,
+        "verification_note": VERIFY_WITH_BIS_NOTE,
+    }
+
+
+def _build_compliance_roadmap(
+    query: str,
+    retrieved_codes: list[str],
+    out_of_scope: bool,
+    bis_services: dict[str, Any],
+) -> dict[str, Any]:
+    lower = str(query or "").lower()
+    audience = str(bis_services.get("audience") or _query_audience(query))
+    includes_hallmarking = any(term in lower for term in HALLMARKING_TERMS)
+    has_codes = bool(retrieved_codes)
+
+    schemes = [
+        "Indian Standards conformity assessment (code applicability verification)",
+        "Product Certification Scheme (ISI Mark)",
+    ]
+    if includes_hallmarking:
+        schemes.append("Hallmarking Scheme with HUID verification")
+    if audience in {"consumer", "industry_and_consumer"}:
+        schemes.append("Consumer affairs and complaint handling channel")
+
+    labs = [
+        "BIS Laboratory Information Management System (LIMS) facility lookup",
+        "BIS recognised external lab aligned to applicable IS code and test parameters",
+    ]
+    if out_of_scope:
+        labs.append("Consult BIS office for product-family mapping before sample testing")
+
+    process = [
+        "Validate exact IS code, title, part/section, and amendment status.",
+        "Confirm scheme route and applicant eligibility on BIS/Manak portals.",
+        "Prepare documents, test samples, and quality-control evidence.",
+        "Plan factory assessment, licensing workflow, and post-approval obligations.",
+    ]
+
+    first_step_title = "Confirm applicable standard"
+    first_step_action = (
+        "Use BIS search and Manak portal to validate the exact standard, including part, section, "
+        "grade, and latest status."
+    )
+    if out_of_scope or not has_codes:
+        first_step_title = "Find applicable product family"
+        first_step_action = (
+            "Current retrieval did not return an in-catalog code; use BIS search and BIS support "
+            "channels to confirm the right product family and applicable IS code."
+        )
+
+    steps = [
+        {
+            "step_no": 1,
+            "title": first_step_title,
+            "action": first_step_action,
+            "official_link": BIS_STANDARDS_DOWNLOAD_URL,
+        },
+        {
+            "step_no": 2,
+            "title": "Choose BIS scheme and application route",
+            "action": (
+                "Review Product Certification/ISI (or Hallmarking/Consumer routes where relevant) "
+                "and map your product and use-case to the correct BIS service path."
+            ),
+            "official_link": BIS_PRODUCT_CERTIFICATION_URL,
+        },
+        {
+            "step_no": 3,
+            "title": "Prepare documents and apply on Manak Online",
+            "action": (
+                "Compile manufacturing details, QC procedures, and product information, then start "
+                "or track application/licence activities through Manak Online."
+            ),
+            "official_link": MANAK_ONLINE_URL,
+        },
+        {
+            "step_no": 4,
+            "title": "Plan testing through BIS labs",
+            "action": (
+                "Select suitable BIS/recognised laboratory setup for the applicable standard and "
+                "ensure sample and test readiness before formal submission."
+            ),
+            "official_link": BIS_LAB_TEST_FACILITIES_URL,
+        },
+        {
+            "step_no": 5,
+            "title": "Complete verification and post-approval compliance",
+            "action": (
+                "Before market claims, verify conditions, surveillance, marking, and consumer-facing "
+                "obligations directly with BIS notifications and scheme documents."
+            ),
+            "official_link": BIS_FAQ_URL,
+        },
+    ]
+
+    if includes_hallmarking:
+        steps.insert(
+            3,
+            {
+                "step_no": 4,
+                "title": "Follow hallmarking and HUID process",
+                "action": (
+                    "For jewellery/precious metal items, follow hallmarking-specific registration and "
+                    "HUID verification workflow instead of generic product certification assumptions."
+                ),
+                "official_link": BIS_HALLMARKING_URL,
+            },
+        )
+        for index, step in enumerate(steps, start=1):
+            step["step_no"] = index
+
+    return {
+        "audience": audience,
+        "applicable_schemes": schemes,
+        "suggested_labs": labs,
+        "process_summary": process,
+        "steps": steps,
+        "verification_note": VERIFY_WITH_BIS_NOTE,
+    }
 
 
 def _tokenize_guidance_text(text: str) -> list[str]:
@@ -3971,6 +4765,13 @@ def recommend(payload: RecommendationRequest) -> dict[str, Any]:
 
     recommendations = _recommendation_items(result["retrieved_standards"], payload.language)
     external_standards = _external_standards(query, payload.language)
+    bis_services = _bis_service_guidance(query, bool(result.get("out_of_scope")))
+    compliance_roadmap = _build_compliance_roadmap(
+      query=query,
+      retrieved_codes=result["retrieved_standards"],
+      out_of_scope=bool(result.get("out_of_scope")),
+      bis_services=bis_services,
+    )
     return {
         **result,
         "compliance_warnings": processed.compliance_warnings,
@@ -3980,6 +4781,15 @@ def recommend(payload: RecommendationRequest) -> dict[str, Any]:
             retrieved_codes=result["retrieved_standards"],
             recommendations=recommendations,
             out_of_scope=bool(result.get("out_of_scope")),
+        ),
+        "bis_services": bis_services,
+        "compliance_roadmap": compliance_roadmap,
+        "compliance_report": _build_compliance_report(
+            query=query,
+            retrieved_codes=result["retrieved_standards"],
+            recommendations=recommendations,
+            bis_services=bis_services,
+            roadmap=compliance_roadmap,
         ),
         "external_standards": external_standards,
     }

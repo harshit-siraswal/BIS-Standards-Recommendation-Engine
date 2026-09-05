@@ -68,6 +68,14 @@ def test_official_logos_are_rendered():
     assert "body.contrast .brand-logos" in INDEX_HTML
 
 
+def test_compliance_roadmap_button_is_rendered():
+    assert "id=\"roadmapButton\"" in INDEX_HTML
+    assert "Show compliance roadmap" in INDEX_HTML
+    assert "id=\"roadmapPanel\"" in INDEX_HTML
+    assert "id=\"reportButton\"" in INDEX_HTML
+    assert "Download report" in INDEX_HTML
+
+
 def test_multilingual_pencil_queries_return_verified_external_standards():
     queries = [
         ("en", "we are making graphite lead pencils"),
@@ -149,6 +157,51 @@ def test_recommendation_response_includes_deterministic_business_guidance(monkey
         re.I,
     )
     assert set(mentioned_codes).issubset(allowed_codes)
+
+
+def test_recommendation_response_includes_step_by_step_compliance_roadmap(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+
+    response = client.post(
+        "/recommend",
+        json={"query": "white Portland cement for architectural decorative use", "top_k": 3},
+    )
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert payload["bis_services"]["official_links"]
+    roadmap = payload["compliance_roadmap"]
+    assert roadmap["applicable_schemes"]
+    assert roadmap["suggested_labs"]
+    assert roadmap["process_summary"]
+    assert roadmap["steps"]
+    assert roadmap["steps"][0]["step_no"] == 1
+    assert roadmap["steps"][0]["official_link"].startswith("https://")
+
+
+def test_recommendation_response_includes_compliance_intelligence_report(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+
+    response = client.post(
+        "/recommend",
+        json={"query": "stainless steel water bottle for drinking water", "top_k": 3},
+    )
+    payload = response.json()
+
+    assert response.status_code == 200
+    report = payload["compliance_report"]
+    assert report["product_description"]
+    assert report["classification"]
+    assert isinstance(report["applicable_indian_standards"], list)
+    assert report["mandatory_or_voluntary"]
+    assert report["certification_required"]
+    assert report["applicable_bis_scheme"]
+    assert report["relevant_clauses"]
+    assert report["required_tests"]
+    assert report["suggested_labs"]
+    assert report["estimated_compliance_workflow"]
+    assert report["source_links"]
+    assert "Verify with BIS" in report["verification_note"]
 
 
 def test_business_guidance_rejects_generated_unreturned_is_codes():

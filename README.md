@@ -64,8 +64,19 @@ uvicorn app:app --reload
 `POST /recommend` keeps the retrieved IS codes and rationale, then adds
 `business_guidance` with matched category, matched terms, why the standards
 match, documents to prepare, testing readiness, workflow, and verification
-notes. This is separate from `inference.py`, which remains deterministic,
+notes. It also returns `bis_services` and `compliance_roadmap` so users get a
+step-by-step BIS compliance path with relevant schemes, lab/test facility
+guidance, process checkpoints, and official links. In addition, the API now
+returns a structured `compliance_report` with classification, mandatory vs
+voluntary signal, certification route, clause references (when detectable from
+catalogue text), required test guidance, labs, workflow summary, and source
+links.
+This is separate from `inference.py`, which remains deterministic,
 fast, API-free, and judge-schema compatible.
+
+In the web UI, use the "Show compliance roadmap" button in the assistant panel
+to expand the full action plan after running a standards search. Use
+"Download report" to export a BIS Compliance Intelligence Report markdown file.
 
 If `GROQ_API_KEY` is present, the app may use Groq to polish the business
 guidance. If the key is missing or the call fails, it falls back to deterministic
